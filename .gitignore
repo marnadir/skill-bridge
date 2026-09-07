@@ -5,3 +5,7 @@
 *.tfplan
 tfplan
 crash.log
+
+# Locale
+CLAUDE.md
+.idea/
