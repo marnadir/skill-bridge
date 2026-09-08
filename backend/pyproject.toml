@@ -1,0 +1,27 @@
+# tooling di sviluppo per le lambda in backend/*: le lambda restano
+# senza dipendenze runtime (boto3 e' incluso nel runtime AWS), quindi
+# qui ci sono solo i pacchetti per sviluppo locale, lint e test
+[project]
+name = "skill-bridge-backend"
+version = "0.1.0"
+description = "Lambda backend di skill-bridge"
+requires-python = ">=3.13"
+
+# niente packaging: poetry serve solo per gestire le dipendenze dev
+[tool.poetry]
+package-mode = false
+
+[dependency-groups]
+dev = [
+    # extra crt: richiesto dal credential provider "login" (aws login/sso)
+    "boto3[crt]>=1.35",
+    "pytest>=8.0",
+    "ruff>=0.8",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -1,0 +1,65 @@
+.cv-upload {
+  width: 100%;
+  max-width: 520px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.cv-upload__dropzone {
+  border: 2px dashed #8884;
+  border-radius: 12px;
+  padding: 3rem 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background-color 0.15s;
+}
+
+.cv-upload__dropzone:hover,
+.cv-upload__dropzone--active {
+  border-color: #646cff;
+  background-color: #646cff14;
+}
+
+.cv-upload__title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem;
+}
+
+.cv-upload__hint {
+  margin: 0;
+  font-size: 0.9rem;
+  opacity: 0.7;
+}
+
+.cv-upload__panel {
+  border: 1px solid #8883;
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+}
+
+.cv-upload__panel--success {
+  border-color: #22c55e88;
+  background-color: #22c55e14;
+}
+
+.cv-upload__panel--error {
+  border-color: #ef444488;
+  background-color: #ef444414;
+}
+
+.cv-upload__meta {
+  opacity: 0.7;
+  font-size: 0.9rem;
+}
+
+.cv-upload__actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.cv-upload__secondary {
+  background-color: transparent;
+}
