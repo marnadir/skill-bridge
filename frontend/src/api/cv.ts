@@ -1,17 +1,18 @@
-//client verso il backend di skill-bridge: chiede alla lambda un
-//presigned URL e carica il CV direttamente su S3. Finche'
-//VITE_API_BASE_URL (function url della lambda) non e' valorizzata
-//l'upload viene solo simulato
+//client verso il backend-api (API Gateway): POST /jobs crea il job e
+//restituisce la presigned URL, la PUT carica il CV direttamente su
+//S3. Senza VITE_API_BASE_URL il flusso viene simulato per lo
+//sviluppo senza backend
 const API_BASE_URL: string | undefined = import.meta.env.VITE_API_BASE_URL
 
 export interface UploadResult {
   fileName: string
+  jobId: string
   simulated: boolean
 }
 
-interface PresignResponse {
+interface CreateJobResponse {
+  jobId: string
   uploadUrl: string
-  key: string
   expiresIn: number
 }
 
@@ -19,11 +20,11 @@ export async function uploadCv(file: File): Promise<UploadResult> {
   if (!API_BASE_URL) {
     //nessun backend configurato: simula la latenza di rete
     await new Promise((resolve) => setTimeout(resolve, 800))
-    return { fileName: file.name, simulated: true }
+    return { fileName: file.name, jobId: 'simulated', simulated: true }
   }
 
-  //1) chiede il presigned URL alla lambda
-  const presignResponse = await fetch(API_BASE_URL, {
+  //1) crea il job: il backend traccia lo stato e firma l'upload
+  const createResponse = await fetch(`${API_BASE_URL}/jobs`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
@@ -33,15 +34,15 @@ export async function uploadCv(file: File): Promise<UploadResult> {
     }),
   })
 
-  if (!presignResponse.ok) {
-    const detail = await presignResponse
+  if (!createResponse.ok) {
+    const detail = await createResponse
       .json()
       .then((b: { message?: string }) => b.message)
       .catch(() => undefined)
-    throw new Error(detail ?? `Richiesta presigned URL fallita (HTTP ${presignResponse.status})`)
+    throw new Error(detail ?? `Creazione job fallita (HTTP ${createResponse.status})`)
   }
 
-  const { uploadUrl } = (await presignResponse.json()) as PresignResponse
+  const { jobId, uploadUrl } = (await createResponse.json()) as CreateJobResponse
 
   //2) carica il file direttamente su S3 col presigned URL
   const uploadResponse = await fetch(uploadUrl, {
@@ -54,5 +55,5 @@ export async function uploadCv(file: File): Promise<UploadResult> {
     throw new Error(`Upload su S3 fallito (HTTP ${uploadResponse.status})`)
   }
 
-  return { fileName: file.name, simulated: false }
+  return { fileName: file.name, jobId, simulated: false }
 }

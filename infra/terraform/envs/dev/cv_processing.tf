@@ -90,6 +90,13 @@ resource "aws_iam_role_policy" "cv_processing_sfn" {
         Action   = "dynamodb:PutItem"
         Resource = aws_dynamodb_table.cv_analysis.arn
       },
+      {
+        ##ogni stato aggiorna lo stato del job (doc 2.2)
+        Sid      = "UpdateJobStatus"
+        Effect   = "Allow"
+        Action   = "dynamodb:UpdateItem"
+        Resource = aws_dynamodb_table.jobs.arn
+      },
     ]
   })
 }
@@ -120,6 +127,15 @@ resource "aws_sfn_state_machine" "cv_processing" {
             BackoffRate     = 2
           },
         ]
+        ##il CV non si perde mai in silenzio (doc 3.3): ogni errore
+        ##finisce sullo stato del job
+        Catch = [
+          {
+            ErrorEquals = ["States.ALL"]
+            ResultPath  = "$.error_info"
+            Next        = "SetJobFailed"
+          },
+        ]
         Next = "StoreAnalysis"
       }
       StoreAnalysis = {
@@ -129,6 +145,7 @@ resource "aws_sfn_state_machine" "cv_processing" {
           TableName = aws_dynamodb_table.cv_analysis.name
           Item = {
             cv_key       = { "S.$" = "$.key" }
+            job_id       = { "S.$" = "$.job_id" }
             bucket       = { "S.$" = "$.bucket" }
             model        = { "S.$" = "$.extraction.model" }
             analysis     = { "S.$" = "States.JsonToString($.extraction.analysis)" }
@@ -136,7 +153,51 @@ resource "aws_sfn_state_machine" "cv_processing" {
             analyzed_at  = { "S.$" = "$$.State.EnteredTime" }
           }
         }
+        ResultPath = null
+        Catch = [
+          {
+            ErrorEquals = ["States.ALL"]
+            ResultPath  = "$.error_info"
+            Next        = "SetJobFailed"
+          },
+        ]
+        Next = "SetJobCompleted"
+      }
+      SetJobCompleted = {
+        Type     = "Task"
+        Resource = "arn:aws:states:::dynamodb:updateItem"
+        Parameters = {
+          TableName                = aws_dynamodb_table.jobs.name
+          Key                      = { job_id = { "S.$" = "$.job_id" } }
+          UpdateExpression         = "SET #s = :completed, updated_at = :now"
+          ExpressionAttributeNames = { "#s" = "status" }
+          ExpressionAttributeValues = {
+            ":completed" = { S = "COMPLETED" }
+            ":now"       = { "S.$" = "$$.State.EnteredTime" }
+          }
+        }
         End = true
+      }
+      SetJobFailed = {
+        Type     = "Task"
+        Resource = "arn:aws:states:::dynamodb:updateItem"
+        Parameters = {
+          TableName                = aws_dynamodb_table.jobs.name
+          Key                      = { job_id = { "S.$" = "$.job_id" } }
+          UpdateExpression         = "SET #s = :failed, #e = :error, updated_at = :now"
+          ExpressionAttributeNames = { "#s" = "status", "#e" = "error" }
+          ExpressionAttributeValues = {
+            ":failed" = { S = "FAILED" }
+            ":error"  = { "S.$" = "States.JsonToString($.error_info)" }
+            ":now"    = { "S.$" = "$$.State.EnteredTime" }
+          }
+        }
+        Next = "Failed"
+      }
+      Failed = {
+        Type  = "Fail"
+        Error = "CvProcessingFailed"
+        Cause = "See the job error attribute on the jobs table"
       }
     }
   })
@@ -288,6 +349,13 @@ resource "aws_iam_role_policy" "start_cv_processing" {
         Resource = aws_sfn_state_machine.cv_processing.arn
       },
       {
+        ##idempotenza: transizione condizionale PENDING_UPLOAD -> PROCESSING
+        Sid      = "ClaimJob"
+        Effect   = "Allow"
+        Action   = "dynamodb:UpdateItem"
+        Resource = aws_dynamodb_table.jobs.arn
+      },
+      {
         Sid    = "Logs"
         Effect = "Allow"
         Action = [
@@ -322,6 +390,7 @@ resource "aws_lambda_function" "start_cv_processing" {
   environment {
     variables = {
       STATE_MACHINE_ARN = aws_sfn_state_machine.cv_processing.arn
+      JOBS_TABLE        = aws_dynamodb_table.jobs.name
     }
   }
 }
