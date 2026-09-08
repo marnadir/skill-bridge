@@ -1,11 +1,18 @@
-//client verso il backend di skill-bridge; l'endpoint reale (API Gateway)
-//arrivera' dall'infra terraform — finche' VITE_API_BASE_URL non e'
-//valorizzata l'upload viene solo simulato
+//client verso il backend di skill-bridge: chiede alla lambda un
+//presigned URL e carica il CV direttamente su S3. Finche'
+//VITE_API_BASE_URL (function url della lambda) non e' valorizzata
+//l'upload viene solo simulato
 const API_BASE_URL: string | undefined = import.meta.env.VITE_API_BASE_URL
 
 export interface UploadResult {
   fileName: string
   simulated: boolean
+}
+
+interface PresignResponse {
+  uploadUrl: string
+  key: string
+  expiresIn: number
 }
 
 export async function uploadCv(file: File): Promise<UploadResult> {
@@ -15,16 +22,36 @@ export async function uploadCv(file: File): Promise<UploadResult> {
     return { fileName: file.name, simulated: true }
   }
 
-  const formData = new FormData()
-  formData.append('cv', file)
-
-  const response = await fetch(`${API_BASE_URL}/cv`, {
+  //1) chiede il presigned URL alla lambda
+  const presignResponse = await fetch(API_BASE_URL, {
     method: 'POST',
-    body: formData,
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      fileName: file.name,
+      contentType: file.type,
+      size: file.size,
+    }),
   })
 
-  if (!response.ok) {
-    throw new Error(`Upload fallito (HTTP ${response.status})`)
+  if (!presignResponse.ok) {
+    const detail = await presignResponse
+      .json()
+      .then((b: { message?: string }) => b.message)
+      .catch(() => undefined)
+    throw new Error(detail ?? `Richiesta presigned URL fallita (HTTP ${presignResponse.status})`)
+  }
+
+  const { uploadUrl } = (await presignResponse.json()) as PresignResponse
+
+  //2) carica il file direttamente su S3 col presigned URL
+  const uploadResponse = await fetch(uploadUrl, {
+    method: 'PUT',
+    headers: { 'content-type': file.type },
+    body: file,
+  })
+
+  if (!uploadResponse.ok) {
+    throw new Error(`Upload su S3 fallito (HTTP ${uploadResponse.status})`)
   }
 
   return { fileName: file.name, simulated: false }
