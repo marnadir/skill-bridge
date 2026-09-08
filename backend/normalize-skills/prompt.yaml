@@ -1,0 +1,5 @@
+# Prompt of the normalize-skills lambda. Fixed format: a single
+# 'prompt: |' block scalar (the lambda runtime has no PyYAML,
+# the block is read directly - keep this structure).
+prompt: |
+  The following text is a pseudonymized CV. Find every mention of a professional skill: technologies, tools, languages (programming and spoken are both fine), methodologies, soft skills. For each one record the EXACT span as it appears in the text and the sentence or line that contains it, using the record_skill_mentions tool. Do not normalize or translate the spans; do not report [TOKEN] placeholders, company names or job titles.
