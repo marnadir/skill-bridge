@@ -68,7 +68,7 @@ export function CvUpload() {
     setStatus({ kind: 'uploading', file })
     try {
       const result = await uploadCv(file)
-      setStatus({ kind: 'done', ...result })
+      setStatus({ kind: 'done', fileName: result.fileName, simulated: result.simulated })
     } catch (err) {
       setStatus({
         kind: 'error',
@@ -136,8 +136,9 @@ export function CvUpload() {
       {status.kind === 'done' && (
         <div className="cv-upload__panel cv-upload__panel--success">
           <p>
-            <strong>{status.fileName}</strong> caricato con successo
-            {status.simulated && ' (simulato: backend non ancora configurato)'}.
+            <strong>{status.fileName}</strong> caricato con successo: l’elaborazione
+            prosegue in background
+            {status.simulated && ' (simulato: backend non configurato)'}.
           </p>
           <div className="cv-upload__actions">
             <button onClick={reset}>Carica un altro CV</button>
