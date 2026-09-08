@@ -80,7 +80,8 @@ data "archive_file" "presign_cv" {
   type        = "zip"
   source_dir  = "${path.module}/../../../../backend/presign-cv"
   output_path = "${path.module}/.terraform/tmp/presign-cv.zip"
-  excludes    = ["__pycache__"]
+  ##local_server.py e' solo per lo sviluppo locale
+  excludes = ["__pycache__", "local_server.py"]
 }
 
 resource "aws_lambda_function" "presign_cv" {
