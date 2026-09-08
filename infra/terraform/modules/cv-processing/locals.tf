@@ -1,0 +1,211 @@
+
+##--- the ingestion step lambdas -------------------------------------
+
+locals {
+  bedrock_statement = {
+    Sid    = "InvokeModel"
+    Effect = "Allow"
+    Action = "bedrock:InvokeModel"
+    ##the EU inference profile routes to eu-* foundation models
+    Resource = [
+      "arn:aws:bedrock:eu-central-1:${data.aws_caller_identity.current.account_id}:inference-profile/${var.bedrock_model_id}",
+      "arn:aws:bedrock:eu-*::foundation-model/${trimprefix(var.bedrock_model_id, "eu.")}",
+    ]
+  }
+
+  embed_statement = {
+    Sid      = "InvokeEmbedModel"
+    Effect   = "Allow"
+    Action   = "bedrock:InvokeModel"
+    Resource = "arn:aws:bedrock:eu-central-1::foundation-model/${var.embed_model_id}"
+  }
+
+  logs_statement = {
+    Sid    = "Logs"
+    Effect = "Allow"
+    Action = [
+      "logs:CreateLogGroup",
+      "logs:CreateLogStream",
+      "logs:PutLogEvents",
+    ]
+    Resource = "arn:aws:logs:*:${data.aws_caller_identity.current.account_id}:*"
+  }
+
+  ##one lambda per step: each reads ONLY the prefix produced by the
+  ##previous step and writes ONLY its own (least privilege)
+  step_lambdas = {
+    "parse-cv" = {
+      timeout     = 120
+      memory_size = 512
+      env         = { MODEL_ID = var.bedrock_model_id, MAX_TOKENS = "8000" }
+      statements = [
+        {
+          Sid      = "ReadCv"
+          Effect   = "Allow"
+          Action   = "s3:GetObject"
+          Resource = "${var.cv_bucket_arn}/cv/*"
+        },
+        {
+          ##markdown/ is outside the cv/ notification prefix: no loop
+          Sid      = "WriteMarkdown"
+          Effect   = "Allow"
+          Action   = "s3:PutObject"
+          Resource = "${var.cv_bucket_arn}/markdown/*"
+        },
+      ]
+    }
+    "redact-pii" = {
+      timeout     = 60
+      memory_size = 256
+      env         = { MODEL_ID = var.bedrock_model_id, PII_MAP_TABLE = aws_dynamodb_table.pii_map.name }
+      statements = [
+        {
+          Sid      = "ReadMarkdown"
+          Effect   = "Allow"
+          Action   = "s3:GetObject"
+          Resource = "${var.cv_bucket_arn}/markdown/*"
+        },
+        {
+          Sid      = "WriteRedacted"
+          Effect   = "Allow"
+          Action   = "s3:PutObject"
+          Resource = "${var.cv_bucket_arn}/redacted/*"
+        },
+        {
+          Sid      = "StorePiiMap"
+          Effect   = "Allow"
+          Action   = "dynamodb:PutItem"
+          Resource = aws_dynamodb_table.pii_map.arn
+        },
+      ]
+    }
+    "guardrail" = {
+      timeout     = 60
+      memory_size = 256
+      env         = { MODEL_ID = var.bedrock_model_id }
+      statements = [
+        {
+          Sid      = "ReadRedacted"
+          Effect   = "Allow"
+          Action   = "s3:GetObject"
+          Resource = "${var.cv_bucket_arn}/redacted/*"
+        },
+        {
+          Sid      = "WriteGuarded"
+          Effect   = "Allow"
+          Action   = "s3:PutObject"
+          Resource = "${var.cv_bucket_arn}/guarded/*"
+        },
+      ]
+    }
+    "normalize-skills" = {
+      timeout     = 120
+      memory_size = 256
+      env = {
+        MODEL_ID       = var.bedrock_model_id
+        EMBED_MODEL_ID = var.embed_model_id
+      }
+      statements = [
+        {
+          Sid      = "ReadGuarded"
+          Effect   = "Allow"
+          Action   = "s3:GetObject"
+          Resource = "${var.cv_bucket_arn}/guarded/*"
+        },
+        {
+          Sid      = "WriteNormalized"
+          Effect   = "Allow"
+          Action   = "s3:PutObject"
+          Resource = "${var.cv_bucket_arn}/normalized/*"
+        },
+        local.embed_statement,
+      ]
+    }
+    "chunk-cv" = {
+      timeout     = 120
+      memory_size = 256
+      env = {
+        MODEL_ID        = var.bedrock_model_id
+        PARSING_VERSION = var.parsing_version
+      }
+      statements = [
+        {
+          Sid      = "ReadNormalized"
+          Effect   = "Allow"
+          Action   = "s3:GetObject"
+          Resource = "${var.cv_bucket_arn}/normalized/*"
+        },
+        {
+          Sid      = "WriteChunks"
+          Effect   = "Allow"
+          Action   = "s3:PutObject"
+          Resource = "${var.cv_bucket_arn}/chunks/*"
+        },
+      ]
+    }
+    "embed-cv" = {
+      ##a paused cluster resumes in ~15s: generous timeout
+      timeout     = 180
+      memory_size = 512
+      env = {
+        EMBED_MODEL_ID = var.embed_model_id
+        CLUSTER_ARN    = var.vectorstore_cluster_arn
+        SECRET_ARN     = var.vectorstore_secret_arn
+        DATABASE       = var.vectorstore_database
+      }
+      statements = [
+        {
+          Sid      = "ReadChunks"
+          Effect   = "Allow"
+          Action   = "s3:GetObject"
+          Resource = "${var.cv_bucket_arn}/chunks/*"
+        },
+        {
+          Sid    = "DataApi"
+          Effect = "Allow"
+          Action = [
+            "rds-data:ExecuteStatement",
+            "rds-data:BeginTransaction",
+            "rds-data:CommitTransaction",
+            "rds-data:RollbackTransaction",
+          ]
+          Resource = var.vectorstore_cluster_arn
+        },
+        {
+          ##the Data API authenticates with the RDS-managed secret
+          Sid      = "ReadDbSecret"
+          Effect   = "Allow"
+          Action   = "secretsmanager:GetSecretValue"
+          Resource = var.vectorstore_secret_arn
+        },
+        local.embed_statement,
+      ]
+    }
+  }
+}
+
+
+locals {
+  ##common retry: transient lambda/bedrock errors
+  step_retry = [
+    {
+      ErrorEquals = [
+        "Lambda.ServiceException",
+        "Lambda.TooManyRequestsException",
+        "ThrottlingException",
+      ]
+      IntervalSeconds = 5
+      MaxAttempts     = 3
+      BackoffRate     = 2
+    },
+  ]
+
+  ##common catch: no CV is ever lost silently (doc 3.3)
+  catch_to_failed = [
+    {
+      ErrorEquals = ["States.ALL"]
+      ResultPath  = "$.error_info"
+      Next        = "SetJobFailed"
+    },
+  ]
+}
