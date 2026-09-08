@@ -73,6 +73,9 @@ resource "aws_dynamodb_table" "pii_map" {
 locals {
   ##cross-region EU inference profile (verified active on the account)
   bedrock_model_id = "eu.anthropic.claude-haiku-4-5-20251001-v1:0"
+  ##multilingual embeddings: same model for CV and pre-indexed JDs
+  ##(comparable spaces, doc 4.6); batch up to 96 texts per call
+  embed_model_id = "cohere.embed-multilingual-v3"
 
   bedrock_statement = {
     Sid    = "InvokeModel"
@@ -83,6 +86,13 @@ locals {
       "arn:aws:bedrock:eu-central-1:${data.aws_caller_identity.current.account_id}:inference-profile/${local.bedrock_model_id}",
       "arn:aws:bedrock:eu-*::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0",
     ]
+  }
+
+  embed_statement = {
+    Sid      = "InvokeEmbedModel"
+    Effect   = "Allow"
+    Action   = "bedrock:InvokeModel"
+    Resource = "arn:aws:bedrock:eu-central-1::foundation-model/${local.embed_model_id}"
   }
 
   logs_statement = {
@@ -163,6 +173,89 @@ locals {
         },
       ]
     }
+    "normalize-skills" = {
+      timeout     = 120
+      memory_size = 256
+      env = {
+        MODEL_ID       = local.bedrock_model_id
+        EMBED_MODEL_ID = local.embed_model_id
+      }
+      statements = [
+        {
+          Sid      = "ReadGuarded"
+          Effect   = "Allow"
+          Action   = "s3:GetObject"
+          Resource = "${aws_s3_bucket.cv.arn}/guarded/*"
+        },
+        {
+          Sid      = "WriteNormalized"
+          Effect   = "Allow"
+          Action   = "s3:PutObject"
+          Resource = "${aws_s3_bucket.cv.arn}/normalized/*"
+        },
+        local.embed_statement,
+      ]
+    }
+    "chunk-cv" = {
+      timeout     = 120
+      memory_size = 256
+      env = {
+        MODEL_ID        = local.bedrock_model_id
+        PARSING_VERSION = "1"
+      }
+      statements = [
+        {
+          Sid      = "ReadNormalized"
+          Effect   = "Allow"
+          Action   = "s3:GetObject"
+          Resource = "${aws_s3_bucket.cv.arn}/normalized/*"
+        },
+        {
+          Sid      = "WriteChunks"
+          Effect   = "Allow"
+          Action   = "s3:PutObject"
+          Resource = "${aws_s3_bucket.cv.arn}/chunks/*"
+        },
+      ]
+    }
+    "embed-cv" = {
+      ##il cluster a riposo riparte in ~15s: timeout largo
+      timeout     = 180
+      memory_size = 512
+      env = {
+        EMBED_MODEL_ID = local.embed_model_id
+        CLUSTER_ARN    = aws_rds_cluster.vectorstore.arn
+        SECRET_ARN     = aws_rds_cluster.vectorstore.master_user_secret[0].secret_arn
+        DATABASE       = aws_rds_cluster.vectorstore.database_name
+      }
+      statements = [
+        {
+          Sid      = "ReadChunks"
+          Effect   = "Allow"
+          Action   = "s3:GetObject"
+          Resource = "${aws_s3_bucket.cv.arn}/chunks/*"
+        },
+        {
+          Sid    = "DataApi"
+          Effect = "Allow"
+          Action = [
+            "rds-data:ExecuteStatement",
+            "rds-data:BeginTransaction",
+            "rds-data:CommitTransaction",
+            "rds-data:RollbackTransaction",
+          ]
+          Resource = aws_rds_cluster.vectorstore.arn
+        },
+        {
+          ##la Data API si autentica col secret master gestito da RDS
+          Sid      = "ReadDbSecret"
+          Effect   = "Allow"
+          Action   = "secretsmanager:GetSecretValue"
+          Resource = aws_rds_cluster.vectorstore.master_user_secret[0].secret_arn
+        },
+        local.embed_statement,
+      ]
+    }
   }
 }
 
@@ -219,6 +312,7 @@ resource "aws_lambda_function" "step" {
   handler     = "lambda_function.lambda_handler"
   timeout     = each.value.timeout
   memory_size = each.value.memory_size
+  layers      = [aws_lambda_layer_version.python_deps.arn]
 
   environment {
     variables = each.value.env
@@ -343,6 +437,48 @@ resource "aws_sfn_state_machine" "cv_processing" {
         }
         ResultPath     = "$.guardrail"
         TimeoutSeconds = 120
+        Retry          = local.step_retry
+        Catch          = local.catch_to_failed
+        Next           = "NormalizeSkills"
+      }
+      NormalizeSkills = {
+        Type     = "Task"
+        Resource = aws_lambda_function.step["normalize-skills"].arn
+        Parameters = {
+          "job_id.$"      = "$.job_id"
+          "bucket.$"      = "$.bucket"
+          "guarded_key.$" = "$.guardrail.guarded_key"
+        }
+        ResultPath     = "$.normalization"
+        TimeoutSeconds = 180
+        Retry          = local.step_retry
+        Catch          = local.catch_to_failed
+        Next           = "ChunkCv"
+      }
+      ChunkCv = {
+        Type     = "Task"
+        Resource = aws_lambda_function.step["chunk-cv"].arn
+        Parameters = {
+          "job_id.$"         = "$.job_id"
+          "bucket.$"         = "$.bucket"
+          "normalized_key.$" = "$.normalization.normalized_key"
+        }
+        ResultPath     = "$.chunking"
+        TimeoutSeconds = 180
+        Retry          = local.step_retry
+        Catch          = local.catch_to_failed
+        Next           = "EmbedCv"
+      }
+      EmbedCv = {
+        Type     = "Task"
+        Resource = aws_lambda_function.step["embed-cv"].arn
+        Parameters = {
+          "job_id.$"     = "$.job_id"
+          "bucket.$"     = "$.bucket"
+          "chunks_key.$" = "$.chunking.chunks_key"
+        }
+        ResultPath     = "$.embedding"
+        TimeoutSeconds = 240
         Retry          = local.step_retry
         Catch          = local.catch_to_failed
         Next           = "SetJobCompleted"
@@ -491,4 +627,22 @@ resource "aws_lambda_event_source_mapping" "start_cv_processing" {
 
 output "cv_processing_state_machine_arn" {
   value = aws_sfn_state_machine.cv_processing.arn
+}
+
+##--- shared python dependencies layer -------------------------------
+
+##built by scripts/build_lambda_layer.sh BEFORE plan/apply (see the
+##terraform workflow): pydantic has a compiled core, so it ships as a
+##layer instead of vendoring it in every function zip
+data "archive_file" "python_deps_layer" {
+  type        = "zip"
+  source_dir  = "${path.module}/.terraform/tmp/layer"
+  output_path = "${path.module}/.terraform/tmp/python-deps-layer.zip"
+}
+
+resource "aws_lambda_layer_version" "python_deps" {
+  layer_name          = "${local.name_prefix}-python-deps"
+  filename            = data.archive_file.python_deps_layer.output_path
+  source_code_hash    = data.archive_file.python_deps_layer.output_base64sha256
+  compatible_runtimes = ["python3.13"]
 }

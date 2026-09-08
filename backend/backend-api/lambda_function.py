@@ -12,10 +12,11 @@ import os
 import re
 import uuid
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 
 import boto3
 from botocore.config import Config
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 REGION = os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION") or "eu-central-1"
 
@@ -37,10 +38,41 @@ URL_TTL_SECONDS = 300
 # parsing step (keep in sync with CvUpload.tsx)
 MAX_SIZE_BYTES = int(4.5 * 1024 * 1024)
 
-ALLOWED_TYPES = {
-    "application/pdf",
-    "application/msword",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+class CreateJobRequest(BaseModel):
+    """Validated body of POST /jobs."""
+
+    file_name: str = Field(alias="fileName")
+    content_type: Literal[
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ] = Field(alias="contentType")
+    size: float = Field(gt=0, le=MAX_SIZE_BYTES)
+
+    @field_validator("file_name")
+    @classmethod
+    def _file_name_not_blank(cls, value: str) -> str:
+        """Reject blank file names.
+
+        Args:
+            value: The raw fileName field.
+
+        Returns:
+            str: The validated value.
+
+        Raises:
+            ValueError: If the name is empty or whitespace only.
+        """
+        if not value.strip():
+            raise ValueError("blank file name")
+        return value
+
+
+##user-facing message per invalid field (pydantic loc -> italian)
+VALIDATION_MESSAGES = {
+    "fileName": "fileName mancante",
+    "contentType": "Formato non supportato: solo PDF, DOC o DOCX",
+    "size": f"Dimensione non valida: max {MAX_SIZE_BYTES / (1024 * 1024):g} MB",
 }
 
 
@@ -93,28 +125,14 @@ def _create_job(event: dict[str, Any]) -> dict[str, Any]:
             or 400 with the validation failure reason.
     """
     try:
-        payload = json.loads(event.get("body") or "")
-    except json.JSONDecodeError:
-        return _response(400, {"message": "Body JSON non valido"})
-    if not isinstance(payload, dict):
-        return _response(400, {"message": "Body JSON non valido"})
-
-    file_name = payload.get("fileName")
-    content_type = payload.get("contentType")
-    size = payload.get("size")
-
-    if not isinstance(file_name, str) or not file_name.strip():
-        return _response(400, {"message": "fileName mancante"})
-    if content_type not in ALLOWED_TYPES:
-        return _response(400, {"message": "Formato non supportato: solo PDF, DOC o DOCX"})
-    if not isinstance(size, (int, float)) or size <= 0 or size > MAX_SIZE_BYTES:
-        return _response(
-            400,
-            {"message": f"Dimensione non valida: max {MAX_SIZE_BYTES / (1024 * 1024):g} MB"},
-        )
+        request = CreateJobRequest.model_validate_json(event.get("body") or "")
+    except ValidationError as exc:
+        loc = exc.errors()[0].get("loc") or ()
+        message = VALIDATION_MESSAGES.get(str(loc[0]) if loc else "", "Body JSON non valido")
+        return _response(400, {"message": message})
 
     job_id = str(uuid.uuid4())
-    safe_name = re.sub(r"[^\w.\-]+", "_", file_name)[-100:]
+    safe_name = re.sub(r"[^\w.\-]+", "_", request.file_name)[-100:]
     # the job_id is embedded in the key: the starter lambda derives it
     # back from the S3 event
     key = f"cv/{job_id}/{safe_name}"
@@ -126,7 +144,7 @@ def _create_job(event: dict[str, Any]) -> dict[str, Any]:
             "job_id": {"S": job_id},
             "status": {"S": "PENDING_UPLOAD"},
             "cv_key": {"S": key},
-            "file_name": {"S": file_name},
+            "file_name": {"S": request.file_name},
             "created_at": {"S": now},
             "updated_at": {"S": now},
         },
@@ -134,7 +152,7 @@ def _create_job(event: dict[str, Any]) -> dict[str, Any]:
 
     upload_url = s3.generate_presigned_url(
         "put_object",
-        Params={"Bucket": BUCKET, "Key": key, "ContentType": content_type},
+        Params={"Bucket": BUCKET, "Key": key, "ContentType": request.content_type},
         ExpiresIn=URL_TTL_SECONDS,
     )
 

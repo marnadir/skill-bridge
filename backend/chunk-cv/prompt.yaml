@@ -1,0 +1,5 @@
+# Prompt of the chunk-cv lambda. Fixed format: a single
+# 'prompt: |' block scalar (the lambda runtime has no PyYAML,
+# the block is read directly - keep this structure).
+prompt: |
+  Split the following pseudonymized CV into its canonical sections and record them with the record_cv_sections tool. Rules: one section per work experience (title = role at company) and one per education entry (title = degree); group the skill lists into a single 'skills' section; keep the content verbatim, do not summarize; extract start/end dates when present (YYYY or YYYY-MM, 'present' for ongoing); set the language of each section. Every meaningful line of the CV must land in exactly one section; use 'other' only as a last resort.

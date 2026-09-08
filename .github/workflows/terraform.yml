@@ -56,6 +56,15 @@ jobs:
       - name: Terraform fmt check
         run: terraform -chdir=$TF_ROOT fmt -check -recursive
 
+      ##il layer con le dipendenze python va costruito prima del plan:
+      ##archive_file lo zippa dalla directory prodotta dallo script
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Build lambda layer
+        run: ./scripts/build_lambda_layer.sh
+
       - name: Terraform init
         run: terraform -chdir=$TF_DIR init -input=false
 
@@ -78,6 +87,13 @@ jobs:
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Build lambda layer
+        run: ./scripts/build_lambda_layer.sh
 
       - name: Terraform init
         run: terraform -chdir=$TF_DIR init -input=false

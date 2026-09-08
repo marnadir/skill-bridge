@@ -84,6 +84,7 @@ resource "aws_lambda_function" "backend_api" {
   runtime = "python3.13"
   handler = "lambda_function.lambda_handler"
   timeout = 10
+  layers  = [aws_lambda_layer_version.python_deps.arn]
 
   environment {
     variables = {
