@@ -19,13 +19,14 @@ resource "aws_s3_bucket_public_access_block" "cv" {
 }
 
 ##il browser carica direttamente sul bucket col presigned URL: serve
-##il CORS per la PUT. Origini aperte finche' non c'e' un dominio fe
+##il CORS per la PUT, limitato al dominio CloudFront del fe e al
+##dev server locale
 resource "aws_s3_bucket_cors_configuration" "cv" {
   bucket = aws_s3_bucket.cv.id
 
   cors_rule {
     allowed_methods = ["PUT"]
-    allowed_origins = ["*"]
+    allowed_origins = local.fe_origins
     allowed_headers = ["content-type"]
     max_age_seconds = 3600
   }
@@ -106,7 +107,7 @@ resource "aws_lambda_function_url" "presign_cv" {
   authorization_type = "NONE"
 
   cors {
-    allow_origins = ["*"]
+    allow_origins = local.fe_origins
     allow_methods = ["POST"]
     allow_headers = ["content-type"]
     max_age       = 3600
