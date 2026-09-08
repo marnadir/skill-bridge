@@ -1,5 +1,7 @@
-##CV processing pipeline: S3 upload event -> SQS -> lambda consumer
-##-> Step Function execution (one per uploaded CV)
+##CV processing pipeline (doc sez. 4): S3 upload event -> SQS ->
+##starter lambda -> state machine con gli step di ingestion:
+##[Parsing] -> [PII redaction] -> [Guardrail] (step 4-6 nella
+##prossima tranche)
 
 ##--- SQS queue + DLQ ------------------------------------------------
 
@@ -53,7 +55,177 @@ resource "aws_s3_bucket_notification" "cv" {
   depends_on = [aws_sqs_queue_policy.cv_events]
 }
 
-##--- Step Function (skeleton) ---------------------------------------
+##--- mappa PII (token -> identita', separata dai dati di pipeline) ---
+
+resource "aws_dynamodb_table" "pii_map" {
+  name         = "${local.name_prefix}-pii-map"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "job_id"
+
+  attribute {
+    name = "job_id"
+    type = "S"
+  }
+}
+
+##--- le lambda degli step di ingestion ------------------------------
+
+locals {
+  ##cross-region EU inference profile (verified active on the account)
+  bedrock_model_id = "eu.anthropic.claude-haiku-4-5-20251001-v1:0"
+
+  bedrock_statement = {
+    Sid    = "InvokeModel"
+    Effect = "Allow"
+    Action = "bedrock:InvokeModel"
+    ##the EU inference profile routes to eu-* foundation models
+    Resource = [
+      "arn:aws:bedrock:eu-central-1:${data.aws_caller_identity.current.account_id}:inference-profile/${local.bedrock_model_id}",
+      "arn:aws:bedrock:eu-*::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0",
+    ]
+  }
+
+  logs_statement = {
+    Sid    = "Logs"
+    Effect = "Allow"
+    Action = [
+      "logs:CreateLogGroup",
+      "logs:CreateLogStream",
+      "logs:PutLogEvents",
+    ]
+    Resource = "arn:aws:logs:*:${data.aws_caller_identity.current.account_id}:*"
+  }
+
+  ##una lambda per step: ognuna legge SOLO il prefisso prodotto dallo
+  ##step precedente e scrive SOLO il proprio (least privilege)
+  step_lambdas = {
+    "parse-cv" = {
+      timeout     = 120
+      memory_size = 512
+      env         = { MODEL_ID = local.bedrock_model_id, MAX_TOKENS = "8000" }
+      statements = [
+        {
+          Sid      = "ReadCv"
+          Effect   = "Allow"
+          Action   = "s3:GetObject"
+          Resource = "${aws_s3_bucket.cv.arn}/cv/*"
+        },
+        {
+          ##markdown/ is outside the cv/ notification prefix: no loop
+          Sid      = "WriteMarkdown"
+          Effect   = "Allow"
+          Action   = "s3:PutObject"
+          Resource = "${aws_s3_bucket.cv.arn}/markdown/*"
+        },
+      ]
+    }
+    "redact-pii" = {
+      timeout     = 60
+      memory_size = 256
+      env         = { MODEL_ID = local.bedrock_model_id, PII_MAP_TABLE = aws_dynamodb_table.pii_map.name }
+      statements = [
+        {
+          Sid      = "ReadMarkdown"
+          Effect   = "Allow"
+          Action   = "s3:GetObject"
+          Resource = "${aws_s3_bucket.cv.arn}/markdown/*"
+        },
+        {
+          Sid      = "WriteRedacted"
+          Effect   = "Allow"
+          Action   = "s3:PutObject"
+          Resource = "${aws_s3_bucket.cv.arn}/redacted/*"
+        },
+        {
+          Sid      = "StorePiiMap"
+          Effect   = "Allow"
+          Action   = "dynamodb:PutItem"
+          Resource = aws_dynamodb_table.pii_map.arn
+        },
+      ]
+    }
+    "guardrail" = {
+      timeout     = 60
+      memory_size = 256
+      env         = { MODEL_ID = local.bedrock_model_id }
+      statements = [
+        {
+          Sid      = "ReadRedacted"
+          Effect   = "Allow"
+          Action   = "s3:GetObject"
+          Resource = "${aws_s3_bucket.cv.arn}/redacted/*"
+        },
+        {
+          Sid      = "WriteGuarded"
+          Effect   = "Allow"
+          Action   = "s3:PutObject"
+          Resource = "${aws_s3_bucket.cv.arn}/guarded/*"
+        },
+      ]
+    }
+  }
+}
+
+resource "aws_iam_role" "step" {
+  for_each = local.step_lambdas
+
+  ##CONSTRAINT: role names must start with skillbridge-* (see main.tf)
+  name = "${local.name_prefix}-${each.key}-lambda"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "lambda.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "step" {
+  for_each = local.step_lambdas
+
+  name = each.key
+  role = aws_iam_role.step[each.key].id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = concat(
+      each.value.statements,
+      [local.bedrock_statement, local.logs_statement],
+    )
+  })
+}
+
+data "archive_file" "step" {
+  for_each = local.step_lambdas
+
+  type        = "zip"
+  source_dir  = "${path.module}/../../../../backend/${each.key}"
+  output_path = "${path.module}/.terraform/tmp/${each.key}.zip"
+  excludes    = ["__pycache__"]
+}
+
+resource "aws_lambda_function" "step" {
+  for_each = local.step_lambdas
+
+  function_name = "${local.name_prefix}-${each.key}"
+  role          = aws_iam_role.step[each.key].arn
+
+  filename         = data.archive_file.step[each.key].output_path
+  source_code_hash = data.archive_file.step[each.key].output_base64sha256
+
+  runtime     = "python3.13"
+  handler     = "lambda_function.lambda_handler"
+  timeout     = each.value.timeout
+  memory_size = each.value.memory_size
+
+  environment {
+    variables = each.value.env
+  }
+}
+
+##--- state machine ---------------------------------------------------
 
 ##CONSTRAINT: role names must start with skillbridge-* (see main.tf)
 resource "aws_iam_role" "cv_processing_sfn" {
@@ -69,8 +241,8 @@ resource "aws_iam_role" "cv_processing_sfn" {
   })
 }
 
-##the state machine can only invoke the extract lambda and write to
-##the analysis table
+##la state machine puo' solo invocare le lambda degli step e
+##aggiornare lo stato del job
 resource "aws_iam_role_policy" "cv_processing_sfn" {
   name = "cv-processing"
   role = aws_iam_role.cv_processing_sfn.id
@@ -79,19 +251,13 @@ resource "aws_iam_role_policy" "cv_processing_sfn" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid      = "InvokeExtractSkills"
+        Sid      = "InvokeStepLambdas"
         Effect   = "Allow"
         Action   = "lambda:InvokeFunction"
-        Resource = aws_lambda_function.extract_skills.arn
+        Resource = [for l in aws_lambda_function.step : l.arn]
       },
       {
-        Sid      = "StoreAnalysis"
-        Effect   = "Allow"
-        Action   = "dynamodb:PutItem"
-        Resource = aws_dynamodb_table.cv_analysis.arn
-      },
-      {
-        ##ogni stato aggiorna lo stato del job (doc 2.2)
+        ##ogni esito aggiorna lo stato del job (doc 2.2)
         Sid      = "UpdateJobStatus"
         Effect   = "Allow"
         Action   = "dynamodb:UpdateItem"
@@ -101,67 +267,85 @@ resource "aws_iam_role_policy" "cv_processing_sfn" {
   })
 }
 
-##ExtractSkills (lambda + bedrock) -> StoreAnalysis (dynamodb putItem)
+locals {
+  ##retry comune: errori transitori di lambda/bedrock
+  step_retry = [
+    {
+      ErrorEquals = [
+        "Lambda.ServiceException",
+        "Lambda.TooManyRequestsException",
+        "ThrottlingException",
+      ]
+      IntervalSeconds = 5
+      MaxAttempts     = 3
+      BackoffRate     = 2
+    },
+  ]
+
+  ##catch comune: il CV non si perde mai in silenzio (doc 3.3)
+  catch_to_failed = [
+    {
+      ErrorEquals = ["States.ALL"]
+      ResultPath  = "$.error_info"
+      Next        = "SetJobFailed"
+    },
+  ]
+}
+
 resource "aws_sfn_state_machine" "cv_processing" {
   name     = "${local.name_prefix}-cv-processing"
   role_arn = aws_iam_role.cv_processing_sfn.arn
 
   definition = jsonencode({
-    Comment = "CV processing pipeline"
-    StartAt = "ExtractSkills"
+    Comment = "CV processing pipeline - ingestion steps 1-3 (doc sez. 4)"
+    StartAt = "Parsing"
     States = {
-      ExtractSkills = {
+      Parsing = {
         Type           = "Task"
-        Resource       = aws_lambda_function.extract_skills.arn
-        ResultPath     = "$.extraction"
+        Resource       = aws_lambda_function.step["parse-cv"].arn
+        ResultPath     = "$.parsing"
         TimeoutSeconds = 180
-        Retry = [
-          {
-            ErrorEquals = [
-              "Lambda.ServiceException",
-              "Lambda.TooManyRequestsException",
-              "ThrottlingException",
-            ]
-            IntervalSeconds = 5
-            MaxAttempts     = 3
-            BackoffRate     = 2
-          },
-        ]
-        ##il CV non si perde mai in silenzio (doc 3.3): ogni errore
-        ##finisce sullo stato del job
-        Catch = [
-          {
-            ErrorEquals = ["States.ALL"]
-            ResultPath  = "$.error_info"
-            Next        = "SetJobFailed"
-          },
-        ]
-        Next = "StoreAnalysis"
+        Retry          = local.step_retry
+        ##sanity check fallito = coda di revisione, NON errore (doc 4.1)
+        Catch = concat(
+          [
+            {
+              ErrorEquals = ["SanityCheckFailed"]
+              ResultPath  = "$.review_info"
+              Next        = "SetJobNeedsReview"
+            },
+          ],
+          local.catch_to_failed,
+        )
+        Next = "PiiRedaction"
       }
-      StoreAnalysis = {
+      PiiRedaction = {
         Type     = "Task"
-        Resource = "arn:aws:states:::dynamodb:putItem"
+        Resource = aws_lambda_function.step["redact-pii"].arn
         Parameters = {
-          TableName = aws_dynamodb_table.cv_analysis.name
-          Item = {
-            cv_key       = { "S.$" = "$.key" }
-            job_id       = { "S.$" = "$.job_id" }
-            bucket       = { "S.$" = "$.bucket" }
-            model        = { "S.$" = "$.extraction.model" }
-            analysis     = { "S.$" = "States.JsonToString($.extraction.analysis)" }
-            markdown_key = { "S.$" = "$.extraction.markdown_key" }
-            analyzed_at  = { "S.$" = "$$.State.EnteredTime" }
-          }
+          "job_id.$"       = "$.job_id"
+          "bucket.$"       = "$.bucket"
+          "markdown_key.$" = "$.parsing.markdown_key"
         }
-        ResultPath = null
-        Catch = [
-          {
-            ErrorEquals = ["States.ALL"]
-            ResultPath  = "$.error_info"
-            Next        = "SetJobFailed"
-          },
-        ]
-        Next = "SetJobCompleted"
+        ResultPath     = "$.redaction"
+        TimeoutSeconds = 120
+        Retry          = local.step_retry
+        Catch          = local.catch_to_failed
+        Next           = "Guardrail"
+      }
+      Guardrail = {
+        Type     = "Task"
+        Resource = aws_lambda_function.step["guardrail"].arn
+        Parameters = {
+          "job_id.$"       = "$.job_id"
+          "bucket.$"       = "$.bucket"
+          "redacted_key.$" = "$.redaction.redacted_key"
+        }
+        ResultPath     = "$.guardrail"
+        TimeoutSeconds = 120
+        Retry          = local.step_retry
+        Catch          = local.catch_to_failed
+        Next           = "SetJobCompleted"
       }
       SetJobCompleted = {
         Type     = "Task"
@@ -174,6 +358,23 @@ resource "aws_sfn_state_machine" "cv_processing" {
           ExpressionAttributeValues = {
             ":completed" = { S = "COMPLETED" }
             ":now"       = { "S.$" = "$$.State.EnteredTime" }
+          }
+        }
+        End = true
+      }
+      ##esito legittimo, non fallimento: un umano guardera' il file
+      SetJobNeedsReview = {
+        Type     = "Task"
+        Resource = "arn:aws:states:::dynamodb:updateItem"
+        Parameters = {
+          TableName                = aws_dynamodb_table.jobs.name
+          Key                      = { job_id = { "S.$" = "$.job_id" } }
+          UpdateExpression         = "SET #s = :review, #e = :reason, updated_at = :now"
+          ExpressionAttributeNames = { "#s" = "status", "#e" = "error" }
+          ExpressionAttributeValues = {
+            ":review" = { S = "NEEDS_REVIEW" }
+            ":reason" = { "S.$" = "States.JsonToString($.review_info)" }
+            ":now"    = { "S.$" = "$$.State.EnteredTime" }
           }
         }
         End = true
@@ -201,113 +402,6 @@ resource "aws_sfn_state_machine" "cv_processing" {
       }
     }
   })
-}
-
-##--- analysis results table -----------------------------------------
-
-resource "aws_dynamodb_table" "cv_analysis" {
-  name         = "${local.name_prefix}-cv-analysis"
-  billing_mode = "PAY_PER_REQUEST"
-  hash_key     = "cv_key"
-
-  attribute {
-    name = "cv_key"
-    type = "S"
-  }
-}
-
-##--- extract-skills lambda ------------------------------------------
-
-##cross-region EU inference profile (verified active on the account)
-locals {
-  bedrock_model_id = "eu.anthropic.claude-haiku-4-5-20251001-v1:0"
-}
-
-resource "aws_iam_role" "extract_skills" {
-  name = "${local.name_prefix}-extract-skills-lambda"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect    = "Allow"
-      Principal = { Service = "lambda.amazonaws.com" }
-      Action    = "sts:AssumeRole"
-    }]
-  })
-}
-
-resource "aws_iam_role_policy" "extract_skills" {
-  name = "extract-skills"
-  role = aws_iam_role.extract_skills.id
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Sid      = "ReadCv"
-        Effect   = "Allow"
-        Action   = "s3:GetObject"
-        Resource = "${aws_s3_bucket.cv.arn}/cv/*"
-      },
-      {
-        ##markdown/ is outside the cv/ notification prefix: no loop
-        Sid      = "WriteMarkdown"
-        Effect   = "Allow"
-        Action   = "s3:PutObject"
-        Resource = "${aws_s3_bucket.cv.arn}/markdown/*"
-      },
-      {
-        Sid    = "InvokeModel"
-        Effect = "Allow"
-        Action = "bedrock:InvokeModel"
-        ##the EU inference profile routes to eu-* foundation models
-        Resource = [
-          "arn:aws:bedrock:eu-central-1:${data.aws_caller_identity.current.account_id}:inference-profile/${local.bedrock_model_id}",
-          "arn:aws:bedrock:eu-*::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0",
-        ]
-      },
-      {
-        Sid    = "Logs"
-        Effect = "Allow"
-        Action = [
-          "logs:CreateLogGroup",
-          "logs:CreateLogStream",
-          "logs:PutLogEvents",
-        ]
-        Resource = "arn:aws:logs:*:${data.aws_caller_identity.current.account_id}:*"
-      },
-    ]
-  })
-}
-
-data "archive_file" "extract_skills" {
-  type        = "zip"
-  source_dir  = "${path.module}/../../../../backend/extract-skills"
-  output_path = "${path.module}/.terraform/tmp/extract-skills.zip"
-  excludes    = ["__pycache__"]
-}
-
-resource "aws_lambda_function" "extract_skills" {
-  function_name = "${local.name_prefix}-extract-skills"
-  role          = aws_iam_role.extract_skills.arn
-
-  filename         = data.archive_file.extract_skills.output_path
-  source_code_hash = data.archive_file.extract_skills.output_base64sha256
-
-  runtime = "python3.13"
-  handler = "lambda_function.lambda_handler"
-  ##bedrock call with an attached document can take tens of seconds
-  timeout     = 120
-  memory_size = 512
-
-  environment {
-    variables = {
-      MODEL_ID = local.bedrock_model_id
-      ##the markdown transcription of a multi-page CV can be long
-      MAX_TOKENS  = "8000"
-      TEMPERATURE = "0"
-    }
-  }
 }
 
 ##--- consumer lambda ------------------------------------------------
@@ -355,16 +449,7 @@ resource "aws_iam_role_policy" "start_cv_processing" {
         Action   = "dynamodb:UpdateItem"
         Resource = aws_dynamodb_table.jobs.arn
       },
-      {
-        Sid    = "Logs"
-        Effect = "Allow"
-        Action = [
-          "logs:CreateLogGroup",
-          "logs:CreateLogStream",
-          "logs:PutLogEvents",
-        ]
-        Resource = "arn:aws:logs:*:${data.aws_caller_identity.current.account_id}:*"
-      },
+      local.logs_statement,
     ]
   })
 }

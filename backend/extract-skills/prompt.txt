@@ -1,1 +1,0 @@
-Read the attached CV, transcribe it faithfully to markdown (preserving headings, lists and section order) and extract the candidate profile. Record the result with the record_cv_extraction tool. Write the summary in the same language as the CV; normalize skill names; list roles most recent first.
