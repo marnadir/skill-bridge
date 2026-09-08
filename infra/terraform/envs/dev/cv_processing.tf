@@ -69,26 +69,184 @@ resource "aws_iam_role" "cv_processing_sfn" {
   })
 }
 
-##placeholder workflow: the real processing states (parse, analyze,
-##store) will be added by the next features
+##the state machine can only invoke the extract lambda and write to
+##the analysis table
+resource "aws_iam_role_policy" "cv_processing_sfn" {
+  name = "cv-processing"
+  role = aws_iam_role.cv_processing_sfn.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid      = "InvokeExtractSkills"
+        Effect   = "Allow"
+        Action   = "lambda:InvokeFunction"
+        Resource = aws_lambda_function.extract_skills.arn
+      },
+      {
+        Sid      = "StoreAnalysis"
+        Effect   = "Allow"
+        Action   = "dynamodb:PutItem"
+        Resource = aws_dynamodb_table.cv_analysis.arn
+      },
+    ]
+  })
+}
+
+##ExtractSkills (lambda + bedrock) -> StoreAnalysis (dynamodb putItem)
 resource "aws_sfn_state_machine" "cv_processing" {
   name     = "${local.name_prefix}-cv-processing"
   role_arn = aws_iam_role.cv_processing_sfn.arn
 
   definition = jsonencode({
-    Comment = "CV processing pipeline (skeleton)"
-    StartAt = "Todo"
+    Comment = "CV processing pipeline"
+    StartAt = "ExtractSkills"
     States = {
-      Todo = {
-        Type = "Pass"
-        Result = {
-          status = "not-implemented-yet"
+      ExtractSkills = {
+        Type           = "Task"
+        Resource       = aws_lambda_function.extract_skills.arn
+        ResultPath     = "$.extraction"
+        TimeoutSeconds = 180
+        Retry = [
+          {
+            ErrorEquals = [
+              "Lambda.ServiceException",
+              "Lambda.TooManyRequestsException",
+              "ThrottlingException",
+            ]
+            IntervalSeconds = 5
+            MaxAttempts     = 3
+            BackoffRate     = 2
+          },
+        ]
+        Next = "StoreAnalysis"
+      }
+      StoreAnalysis = {
+        Type     = "Task"
+        Resource = "arn:aws:states:::dynamodb:putItem"
+        Parameters = {
+          TableName = aws_dynamodb_table.cv_analysis.name
+          Item = {
+            cv_key       = { "S.$" = "$.key" }
+            bucket       = { "S.$" = "$.bucket" }
+            model        = { "S.$" = "$.extraction.model" }
+            analysis     = { "S.$" = "States.JsonToString($.extraction.analysis)" }
+            markdown_key = { "S.$" = "$.extraction.markdown_key" }
+            analyzed_at  = { "S.$" = "$$.State.EnteredTime" }
+          }
         }
-        ResultPath = "$.processing"
-        End        = true
+        End = true
       }
     }
   })
+}
+
+##--- analysis results table -----------------------------------------
+
+resource "aws_dynamodb_table" "cv_analysis" {
+  name         = "${local.name_prefix}-cv-analysis"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "cv_key"
+
+  attribute {
+    name = "cv_key"
+    type = "S"
+  }
+}
+
+##--- extract-skills lambda ------------------------------------------
+
+##cross-region EU inference profile (verified active on the account)
+locals {
+  bedrock_model_id = "eu.anthropic.claude-haiku-4-5-20251001-v1:0"
+}
+
+resource "aws_iam_role" "extract_skills" {
+  name = "${local.name_prefix}-extract-skills-lambda"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "lambda.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "extract_skills" {
+  name = "extract-skills"
+  role = aws_iam_role.extract_skills.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid      = "ReadCv"
+        Effect   = "Allow"
+        Action   = "s3:GetObject"
+        Resource = "${aws_s3_bucket.cv.arn}/cv/*"
+      },
+      {
+        ##markdown/ is outside the cv/ notification prefix: no loop
+        Sid      = "WriteMarkdown"
+        Effect   = "Allow"
+        Action   = "s3:PutObject"
+        Resource = "${aws_s3_bucket.cv.arn}/markdown/*"
+      },
+      {
+        Sid    = "InvokeModel"
+        Effect = "Allow"
+        Action = "bedrock:InvokeModel"
+        ##the EU inference profile routes to eu-* foundation models
+        Resource = [
+          "arn:aws:bedrock:eu-central-1:${data.aws_caller_identity.current.account_id}:inference-profile/${local.bedrock_model_id}",
+          "arn:aws:bedrock:eu-*::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0",
+        ]
+      },
+      {
+        Sid    = "Logs"
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+        ]
+        Resource = "arn:aws:logs:*:${data.aws_caller_identity.current.account_id}:*"
+      },
+    ]
+  })
+}
+
+data "archive_file" "extract_skills" {
+  type        = "zip"
+  source_dir  = "${path.module}/../../../../backend/extract-skills"
+  output_path = "${path.module}/.terraform/tmp/extract-skills.zip"
+  excludes    = ["__pycache__"]
+}
+
+resource "aws_lambda_function" "extract_skills" {
+  function_name = "${local.name_prefix}-extract-skills"
+  role          = aws_iam_role.extract_skills.arn
+
+  filename         = data.archive_file.extract_skills.output_path
+  source_code_hash = data.archive_file.extract_skills.output_base64sha256
+
+  runtime = "python3.13"
+  handler = "lambda_function.lambda_handler"
+  ##bedrock call with an attached document can take tens of seconds
+  timeout     = 120
+  memory_size = 512
+
+  environment {
+    variables = {
+      MODEL_ID = local.bedrock_model_id
+      ##the markdown transcription of a multi-page CV can be long
+      MAX_TOKENS  = "8000"
+      TEMPERATURE = "0"
+    }
+  }
 }
 
 ##--- consumer lambda ------------------------------------------------
