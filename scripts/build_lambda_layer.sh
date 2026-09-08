@@ -11,7 +11,10 @@ TARGET="$(cd "$(dirname "$0")/.." && pwd)/infra/terraform/envs/dev/.terraform/tm
 rm -rf "$TARGET"
 mkdir -p "$TARGET"
 
-python3 -m pip install --quiet --upgrade \
+# --no-compile: .pyc files embed build-machine paths/mtimes and would
+# make the layer hash non-deterministic across machines (endless
+# layer republishing between CI and local plans)
+python3 -m pip install --quiet --upgrade --no-compile \
   --target "$TARGET" \
   --platform manylinux2014_x86_64 \
   --implementation cp \
