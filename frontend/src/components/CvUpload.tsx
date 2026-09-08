@@ -10,7 +10,9 @@ const ACCEPTED_TYPES: Record<string, string> = {
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
     'DOCX',
 }
-const MAX_SIZE_MB = 5
+// 4.5 MB: limit of the Bedrock document analysis in the backend
+// (keep in sync with presign-cv/lambda_function.py)
+const MAX_SIZE_MB = 4.5
 const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024
 
 type Status =

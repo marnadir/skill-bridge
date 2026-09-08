@@ -7,6 +7,7 @@ import json
 import os
 import re
 import uuid
+from typing import Any
 
 import boto3
 from botocore.config import Config
@@ -25,7 +26,9 @@ s3 = boto3.client(
 
 BUCKET = os.environ["BUCKET_NAME"]
 URL_TTL_SECONDS = 300
-MAX_SIZE_BYTES = 5 * 1024 * 1024
+# 4.5 MB: hard limit of Bedrock Converse document blocks used by the
+# extract-skills step (keep in sync with CvUpload.tsx)
+MAX_SIZE_BYTES = int(4.5 * 1024 * 1024)
 
 # stessi vincoli applicati lato frontend (CvUpload.tsx)
 ALLOWED_TYPES = {
@@ -35,7 +38,16 @@ ALLOWED_TYPES = {
 }
 
 
-def _response(status_code, body):
+def _response(status_code: int, body: dict[str, Any]) -> dict[str, Any]:
+    """Build a Function URL HTTP response.
+
+    Args:
+        status_code: The HTTP status code.
+        body: The payload to serialize as the JSON body.
+
+    Returns:
+        dict[str, Any]: The response in the Function URL format.
+    """
     return {
         "statusCode": status_code,
         "headers": {"content-type": "application/json"},
@@ -43,7 +55,19 @@ def _response(status_code, body):
     }
 
 
-def lambda_handler(event, context):
+def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
+    """Validate the upload request and generate an S3 presigned PUT URL.
+
+    Args:
+        event: The Function URL event; the JSON body must contain
+            "fileName", "contentType" and "size".
+        context: Lambda runtime context (unused).
+
+    Returns:
+        dict[str, Any]: HTTP response; on success the body contains
+            "uploadUrl", "key" and "expiresIn", on validation failure
+            a "message" with the reason.
+    """
     if event.get("requestContext", {}).get("http", {}).get("method") != "POST":
         return _response(405, {"message": "Metodo non consentito"})
 
@@ -68,7 +92,7 @@ def lambda_handler(event, context):
     if not isinstance(size, (int, float)) or size <= 0 or size > MAX_SIZE_BYTES:
         return _response(
             400,
-            {"message": f"Dimensione non valida: max {MAX_SIZE_BYTES // (1024 * 1024)} MB"},
+            {"message": f"Dimensione non valida: max {MAX_SIZE_BYTES / (1024 * 1024):g} MB"},
         )
 
     # chiave con uuid per evitare collisioni; nome file ripulito dai
