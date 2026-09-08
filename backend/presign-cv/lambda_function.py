@@ -9,8 +9,19 @@ import re
 import uuid
 
 import boto3
+from botocore.config import Config
 
-s3 = boto3.client("s3")
+# force the regional endpoint: presigned URLs built on the global
+# endpoint (s3.amazonaws.com) get a 307 redirect for eu-central-1
+# buckets, which browsers block after a CORS preflight
+REGION = os.environ.get("AWS_REGION") or os.environ.get("AWS_DEFAULT_REGION") or "eu-central-1"
+
+s3 = boto3.client(
+    "s3",
+    region_name=REGION,
+    endpoint_url=f"https://s3.{REGION}.amazonaws.com",
+    config=Config(signature_version="s3v4", s3={"addressing_style": "virtual"}),
+)
 
 BUCKET = os.environ["BUCKET_NAME"]
 URL_TTL_SECONDS = 300
