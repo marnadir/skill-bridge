@@ -7,11 +7,15 @@ on:
   pull_request:
     paths:
       - "infra/terraform/**"
+      ##lambda sources are zipped by terraform (archive_file):
+      ##backend changes must re-run plan/apply too
+      - "backend/**"
       - ".github/workflows/terraform.yml"
   push:
     branches: [main]
     paths:
       - "infra/terraform/**"
+      - "backend/**"
       - ".github/workflows/terraform.yml"
 
 ##id-token serve per l'autenticazione OIDC verso AWS
