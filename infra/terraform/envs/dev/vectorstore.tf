@@ -46,7 +46,7 @@ resource "aws_rds_cluster" "vectorstore" {
 
   engine         = "aurora-postgresql"
   engine_mode    = "provisioned"
-  engine_version = "16.6"
+  engine_version = "17.9"
   database_name  = "skillbridge"
 
   ##credenziali master gestite da RDS su Secrets Manager: la Data API
