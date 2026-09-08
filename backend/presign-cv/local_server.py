@@ -21,17 +21,32 @@ ALLOWED_ORIGIN = "http://localhost:5173"
 
 
 class DevHandler(BaseHTTPRequestHandler):
-    def _send_cors(self):
+    def _send_cors(self) -> None:
+        """Add the CORS headers that the Function URL adds in AWS.
+
+        Returns:
+            None
+        """
         self.send_header("access-control-allow-origin", ALLOWED_ORIGIN)
         self.send_header("access-control-allow-methods", "POST, OPTIONS")
         self.send_header("access-control-allow-headers", "content-type")
 
-    def do_OPTIONS(self):  # preflight del browser
+    def do_OPTIONS(self) -> None:
+        """Answer the browser CORS preflight.
+
+        Returns:
+            None
+        """
         self.send_response(204)
         self._send_cors()
         self.end_headers()
 
-    def do_POST(self):
+    def do_POST(self) -> None:
+        """Convert the HTTP request to a Function URL event and reply.
+
+        Returns:
+            None
+        """
         length = int(self.headers.get("content-length") or 0)
         body = self.rfile.read(length).decode() if length else None
 
