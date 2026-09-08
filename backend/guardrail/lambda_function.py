@@ -16,12 +16,24 @@ from pathlib import Path
 from typing import Any
 
 import boto3
+from pydantic import BaseModel
 
 s3 = boto3.client("s3")
 bedrock = boto3.client("bedrock-runtime")
 
+
+class InjectionScan(BaseModel):
+    """Validated payload of the record_injection_scan tool call."""
+
+    suspicious_spans: list[str]
+
 MODEL_ID = os.environ["MODEL_ID"]
-PROMPT = (Path(__file__).parent / "prompt.txt").read_text()
+# prompt.yaml: a single "prompt: |" block scalar; the runtime has no
+# PyYAML, so the block is read directly (the file stays valid YAML)
+_prompt_lines = (Path(__file__).parent / "prompt.yaml").read_text().splitlines()
+PROMPT = "\n".join(
+    line.removeprefix("  ") for line in _prompt_lines[_prompt_lines.index("prompt: |") + 1 :]
+).strip()
 
 NEUTRALIZED_MARKER = "[CONTENUTO SOSPETTO NEUTRALIZZATO]"
 
@@ -79,7 +91,8 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         inferenceConfig={"maxTokens": 2000, "temperature": 0},
     )
 
-    spans = [s for s in _tool_input(response)["suspicious_spans"] if s and s in text]
+    scan = InjectionScan.model_validate(_tool_input(response))
+    spans = [s for s in scan.suspicious_spans if s and s in text]
     for span in spans:
         # isolate and log, do not block (doc 4.3); logs are the audit
         # trail of what was neutralized

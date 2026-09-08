@@ -1,0 +1,5 @@
+# Prompt of the parse-cv lambda. Fixed format: a single
+# 'prompt: |' block scalar (the lambda runtime has no PyYAML,
+# the block is read directly - keep this structure).
+prompt: |
+  Transcribe the attached CV faithfully to markdown, preserving headings, lists, tables and section order. Handle multi-column layouts by reading each column in logical order. Do not summarize, do not omit content, do not add commentary. Record the result with the record_cv_markdown tool.

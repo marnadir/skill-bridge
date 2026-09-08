@@ -14,12 +14,24 @@ from pathlib import Path
 from typing import Any
 
 import boto3
+from pydantic import BaseModel
 
 s3 = boto3.client("s3")
 bedrock = boto3.client("bedrock-runtime")
 
+
+class CvMarkdown(BaseModel):
+    """Validated payload of the record_cv_markdown tool call."""
+
+    markdown: str
+
 MODEL_ID = os.environ["MODEL_ID"]
-PROMPT = (Path(__file__).parent / "prompt.txt").read_text()
+# prompt.yaml: a single "prompt: |" block scalar; the runtime has no
+# PyYAML, so the block is read directly (the file stays valid YAML)
+_prompt_lines = (Path(__file__).parent / "prompt.yaml").read_text().splitlines()
+PROMPT = "\n".join(
+    line.removeprefix("  ") for line in _prompt_lines[_prompt_lines.index("prompt: |") + 1 :]
+).strip()
 MAX_TOKENS = int(os.environ.get("MAX_TOKENS", "8000"))
 
 # converse document blocks accept at most 4.5 MB
@@ -107,7 +119,7 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         inferenceConfig={"maxTokens": MAX_TOKENS, "temperature": 0},
     )
 
-    markdown = _tool_input(response)["markdown"]
+    markdown = CvMarkdown.model_validate(_tool_input(response)).markdown
     _sanity_check(markdown)
 
     markdown_key = f"markdown/{job_id}/cv.md"

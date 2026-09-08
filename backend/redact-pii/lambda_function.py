@@ -16,17 +16,36 @@ import os
 import re
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import boto3
+from pydantic import BaseModel
 
 s3 = boto3.client("s3")
 bedrock = boto3.client("bedrock-runtime")
 dynamodb = boto3.client("dynamodb")
 
+
+class PiiEntity(BaseModel):
+    """One free-form PII span found by the LLM pass."""
+
+    text: str
+    type: Literal["name", "address", "birthdate"]
+
+
+class EntityList(BaseModel):
+    """Validated payload of the record_pii_entities tool call."""
+
+    entities: list[PiiEntity]
+
 MODEL_ID = os.environ["MODEL_ID"]
 PII_MAP_TABLE = os.environ["PII_MAP_TABLE"]
-PROMPT = (Path(__file__).parent / "prompt.txt").read_text()
+# prompt.yaml: a single "prompt: |" block scalar; the runtime has no
+# PyYAML, so the block is read directly (the file stays valid YAML)
+_prompt_lines = (Path(__file__).parent / "prompt.yaml").read_text().splitlines()
+PROMPT = "\n".join(
+    line.removeprefix("  ") for line in _prompt_lines[_prompt_lines.index("prompt: |") + 1 :]
+).strip()
 
 # deterministic patterns for structured Italian PII
 REGEX_PATTERNS: dict[str, re.Pattern[str]] = {
@@ -152,8 +171,8 @@ def _redact_with_llm(text: str, pii_map: dict[str, str]) -> str:
     )
 
     counters = dict.fromkeys(LLM_TYPES.values(), 0)
-    for entity in _tool_input(response)["entities"]:
-        span, prefix = entity["text"], LLM_TYPES[entity["type"]]
+    for entity in EntityList.model_validate(_tool_input(response)).entities:
+        span, prefix = entity.text, LLM_TYPES[entity.type]
         if not span or span not in text:
             continue
         counters[prefix] += 1

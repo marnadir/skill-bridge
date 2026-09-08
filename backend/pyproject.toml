@@ -17,6 +17,7 @@ dev = [
     "boto3[crt]>=1.35",
     "pytest>=8.0",
     "ruff>=0.8",
+    "pydantic (>=2.11)",
 ]
 
 [tool.ruff]
