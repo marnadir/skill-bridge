@@ -5,7 +5,8 @@ locals {
   bedrock_statement = {
     Sid    = "InvokeModel"
     Effect = "Allow"
-    Action = "bedrock:InvokeModel"
+    ##strands calls ConverseStream: the streaming action is required too
+    Action = ["bedrock:InvokeModel", "bedrock:InvokeModelWithResponseStream"]
     ##the EU inference profile routes to eu-* foundation models
     Resource = [
       "arn:aws:bedrock:eu-central-1:${data.aws_caller_identity.current.account_id}:inference-profile/${var.bedrock_model_id}",
