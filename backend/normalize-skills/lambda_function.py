@@ -18,6 +18,7 @@ Two-stage matching:
 import json
 import math
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -184,10 +185,13 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         unmatched = stage2["unmatched"]
 
     # the canonical variant goes INSIDE the text (doc: coherent
-    # embeddings and BM25 downstream)
+    # embeddings and BM25 downstream). Word-boundary replace: a bare
+    # str.replace would rewrite substrings inside words ('GenML' ->
+    # 'GenMachine Learning', found by the E2E run)
     for mention_text, entry in matched.items():
         if mention_text != entry.name:
-            text = text.replace(mention_text, entry.name)
+            pattern = re.compile(rf"(?<!\w){re.escape(mention_text)}(?!\w)")
+            text = pattern.sub(lambda _m, name=entry.name: name, text)
 
     for raw in unmatched:
         # candidate queue for the taxonomy (doc failure modes)
