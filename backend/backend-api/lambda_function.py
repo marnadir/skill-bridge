@@ -191,5 +191,8 @@ def _get_job(event: dict[str, Any]) -> dict[str, Any]:
     }
     if "error" in item:
         body["error"] = item["error"]["S"]
+    if "results" in item:
+        ##match report written by the SaveResults state (doc 2.1)
+        body["results"] = json.loads(item["results"]["S"])
 
     return _response(200, body)

@@ -12,9 +12,9 @@ CV parsing and job-description matching system on AWS — serverless pipeline
       `normalize-skills` stage 2 then switches from in-memory kNN to a DB kNN
       query, and the `[taxonomy-queue]` candidates can feed the taxonomy without
       a redeploy.
-- [ ] Matching agent (tranche 3): JD seeding on `jd_chunks`, Strands agent with
-      the internal `search_jd` tool, typed outcomes (match / no match / not
-      verifiable), budget on steps/time/cost, results saved on the job.
+- [ ] External validation tool (v0.5, doc 5.2-bis): `validate_employer` behind a
+      feature flag, isolated two-lambda setup (decision to the agent, execution
+      outside), shared circuit breaker on DynamoDB, budget cost axis tracking.
 - [ ] Auth on the backend API (API Gateway is currently unauthenticated; design
       calls for IAM/key — see ADR-002).
 - [ ] KMS encryption + lifecycle/retention on the CV bucket; KMS CMK on the
