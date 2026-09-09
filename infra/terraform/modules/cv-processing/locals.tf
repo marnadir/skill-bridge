@@ -181,6 +181,43 @@ locals {
         local.embed_statement,
       ]
     }
+    "agent-matching" = {
+      ##the agent loop runs a few model+tool rounds: generous timeout
+      timeout     = 300
+      memory_size = 512
+      env = {
+        MODEL_ID            = var.bedrock_model_id
+        EMBED_MODEL_ID      = var.embed_model_id
+        CLUSTER_ARN         = var.vectorstore_cluster_arn
+        SECRET_ARN          = var.vectorstore_secret_arn
+        DATABASE            = var.vectorstore_database
+        MAX_TOOL_CALLS      = "8"
+        TIME_BUDGET_SECONDS = "180"
+        TOP_K               = "5"
+      }
+      statements = [
+        {
+          Sid      = "ReadChunks"
+          Effect   = "Allow"
+          Action   = "s3:GetObject"
+          Resource = "${var.cv_bucket_arn}/chunks/*"
+        },
+        {
+          ##internal tool search_jd: read-only kNN on jd_chunks
+          Sid      = "DataApiQuery"
+          Effect   = "Allow"
+          Action   = "rds-data:ExecuteStatement"
+          Resource = var.vectorstore_cluster_arn
+        },
+        {
+          Sid      = "ReadDbSecret"
+          Effect   = "Allow"
+          Action   = "secretsmanager:GetSecretValue"
+          Resource = var.vectorstore_secret_arn
+        },
+        local.embed_statement,
+      ]
+    }
   }
 }
 

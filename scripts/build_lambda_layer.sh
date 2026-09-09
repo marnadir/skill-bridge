@@ -20,6 +20,6 @@ python3 -m pip install --quiet --upgrade --no-compile \
   --implementation cp \
   --python-version 3.13 \
   --only-binary=:all: \
-  "pydantic==2.12.*"
+  "pydantic==2.12.*" "strands-agents==1.55.*"
 
 echo "lambda layer built at $TARGET"

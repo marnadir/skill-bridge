@@ -94,18 +94,54 @@ resource "aws_sfn_state_machine" "cv_processing" {
         TimeoutSeconds = 240
         Retry          = local.step_retry
         Catch          = local.catch_to_failed
-        Next           = "SetJobCompleted"
+        Next           = "AgentMatching"
       }
-      SetJobCompleted = {
+      ##agent loop (doc 5): for SFN the whole Strands loop is ONE state
+      AgentMatching = {
+        Type     = "Task"
+        Resource = aws_lambda_function.step["agent-matching"].arn
+        Parameters = {
+          "job_id.$"     = "$.job_id"
+          "bucket.$"     = "$.bucket"
+          "chunks_key.$" = "$.chunking.chunks_key"
+          "skills.$"     = "$.normalization.skills"
+        }
+        ResultPath     = "$.matching"
+        TimeoutSeconds = 330
+        Retry          = local.step_retry
+        Catch          = local.catch_to_failed
+        Next           = "ChoiceEsiti"
+      }
+      ##typed agent outcomes drive the transition (doc 5.1)
+      ChoiceEsiti = {
+        Type = "Choice"
+        Choices = [
+          {
+            Variable     = "$.matching.status"
+            StringEquals = "budget_exhausted"
+            Next         = "MarkBudgetExhausted"
+          },
+        ]
+        Default = "SaveResults"
+      }
+      ##SetJobNeedsReview reads $.review_info: provide it on this branch
+      MarkBudgetExhausted = {
+        Type       = "Pass"
+        Result     = { reason = "agent budget exhausted before completing the matching" }
+        ResultPath = "$.review_info"
+        Next       = "SetJobNeedsReview"
+      }
+      SaveResults = {
         Type     = "Task"
         Resource = "arn:aws:states:::dynamodb:updateItem"
         Parameters = {
           TableName                = var.jobs_table_name
           Key                      = { job_id = { "S.$" = "$.job_id" } }
-          UpdateExpression         = "SET #s = :completed, updated_at = :now"
+          UpdateExpression         = "SET #s = :completed, results = :results, updated_at = :now"
           ExpressionAttributeNames = { "#s" = "status" }
           ExpressionAttributeValues = {
             ":completed" = { S = "COMPLETED" }
+            ":results"   = { "S.$" = "States.JsonToString($.matching.report)" }
             ":now"       = { "S.$" = "$$.State.EnteredTime" }
           }
         }

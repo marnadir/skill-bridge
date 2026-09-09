@@ -1,0 +1,53 @@
+{
+  "_comment": "Pre-indexed job descriptions (doc 1.1: JD retrieval is out of scope, they share the skill taxonomy). Seeded into jd_chunks by scripts/seed_jds.py.",
+  "job_descriptions": [
+    {
+      "jd_id": "jd-001",
+      "title": "Senior Data Engineer",
+      "skills": ["python", "aws", "spark", "airflow", "etl", "data-warehouse", "sql", "terraform"],
+      "content": "We are looking for a Senior Data Engineer to design and operate large-scale data pipelines on AWS. You will build ETL/ELT workflows with Apache Spark and Apache Airflow, model data warehouses on Redshift/Snowflake, and own infrastructure as code with Terraform. Strong Python and SQL required; experience with streaming (Kafka) is a plus. You will mentor junior engineers and drive best practices on data quality and observability."
+    },
+    {
+      "jd_id": "jd-002",
+      "title": "Machine Learning Engineer",
+      "skills": ["python", "machine-learning", "deep-learning", "mlops", "sagemaker", "aws", "docker"],
+      "content": "Join our ML platform team to take models from notebook to production. You will build training and inference pipelines on Amazon SageMaker, containerize workloads with Docker, implement MLOps practices (model registry, monitoring, automated retraining) and collaborate with data scientists on PyTorch/TensorFlow models. Solid Python engineering background and cloud experience on AWS required."
+    },
+    {
+      "jd_id": "jd-003",
+      "title": "GenAI Solutions Engineer",
+      "skills": ["generative-ai", "rag", "bedrock", "python", "aws", "nlp", "serverless"],
+      "content": "We build generative AI applications for enterprise customers: RAG pipelines, agentic workflows and LLM-powered products on Amazon Bedrock. You will design prompt strategies, vector search architectures (pgvector/OpenSearch), guardrails and evaluation harnesses, and ship serverless backends (Lambda, Step Functions) in Python. Hands-on experience with LLM APIs, embeddings and NLP fundamentals is essential."
+    },
+    {
+      "jd_id": "jd-004",
+      "title": "Frontend Engineer (React)",
+      "skills": ["react", "typescript", "javascript", "rest-api", "ci-cd"],
+      "content": "We need a Frontend Engineer to build modern web applications with React and TypeScript. You will own features end-to-end: component design, state management, integration with REST APIs, testing and CI/CD pipelines. An eye for UX, accessibility and performance is expected. Experience with Next.js and design systems is a plus."
+    },
+    {
+      "jd_id": "jd-005",
+      "title": "DevOps / Platform Engineer",
+      "skills": ["devops", "kubernetes", "terraform", "ci-cd", "aws", "docker", "linux", "bash"],
+      "content": "As a Platform Engineer you will run our Kubernetes-based platform on AWS (EKS), automate everything with Terraform and GitHub Actions, harden CI/CD pipelines, and build golden paths for product teams. Strong Linux and Bash skills, container expertise with Docker, and an SRE mindset (observability, incident response, capacity planning) are required."
+    },
+    {
+      "jd_id": "jd-006",
+      "title": "Backend Engineer (Java)",
+      "skills": ["java", "spring", "microservices", "rest-api", "sql", "kafka", "docker"],
+      "content": "We are hiring a Backend Engineer to develop microservices in Java/Spring Boot for our transactional platform. You will design REST APIs, work with relational databases and Kafka-based event streaming, containerize services with Docker and contribute to architectural decisions. Solid grasp of testing, concurrency and distributed systems patterns expected."
+    },
+    {
+      "jd_id": "jd-007",
+      "title": "BI / Analytics Engineer",
+      "skills": ["sql", "power-bi", "tableau", "dbt", "data-warehouse", "etl", "python"],
+      "content": "We look for an Analytics Engineer to own the semantic layer of our data platform: dbt models on the warehouse, dashboards in Power BI/Tableau, data quality tests and stakeholder-facing metrics. Strong SQL is mandatory; Python for automation is a plus. You will partner with business teams to turn questions into reliable, self-service analytics."
+    },
+    {
+      "jd_id": "jd-008",
+      "title": "Cloud Solutions Architect",
+      "skills": ["aws", "azure", "gcp", "terraform", "serverless", "microservices", "team-leadership", "communication"],
+      "content": "As a Cloud Solutions Architect you will design multi-cloud architectures (AWS primarily, Azure/GCP where needed), lead technical discovery with customers, produce reference architectures (serverless, microservices, event-driven) and guide delivery teams. Excellent communication and leadership skills required, plus deep hands-on knowledge of IaC with Terraform."
+    }
+  ]
+}
