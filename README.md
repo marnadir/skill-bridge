@@ -5,6 +5,14 @@ CV parsing and job-description matching system on AWS — serverless pipeline
 
 ## TODO
 
+- [ ] **JD ingestion flow via API**: replace the manual `scripts/seed_jds.py` with
+      a proper ingestion flow that fetches job descriptions from an API (ATS /
+      internal jobs endpoint) and upserts them into `jd_chunks` on pgvector:
+      scheduled or event-driven Lambda, embedding with the shared multilingual
+      model, idempotent upsert keyed on `jd_id` with versioning (same
+      `doc_version`/`is_latest` pattern as `cv_chunks`), skills mapped to the
+      canonical taxonomy, removal/deactivation of JDs no longer returned by the
+      source.
 - [ ] **Versioned taxonomy in the vector DB**: move the skill taxonomy from the
       bundled `taxonomy.json` to a `taxonomy_embeddings` table on pgvector, with a
       versioned ingestion flow (seed/update script, `taxonomy_version` on rows,
