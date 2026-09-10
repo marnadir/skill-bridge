@@ -98,6 +98,8 @@ module "cv_processing" {
 
   ##cross-region EU inference profile (verified active on the account)
   bedrock_model_id = "eu.anthropic.claude-haiku-4-5-20251001-v1:0"
+  ##external tool v0.5: enabled in dev
+  external_tool_enabled = true
   ##multilingual embeddings: same model for CV and pre-indexed JDs
   embed_model_id  = "cohere.embed-multilingual-v3"
   parsing_version = "1"

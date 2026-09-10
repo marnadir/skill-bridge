@@ -11,3 +11,16 @@ resource "aws_dynamodb_table" "pii_map" {
     type = "S"
   }
 }
+
+##--- agent governance: shared circuit breaker state (doc 5.3) -------
+
+resource "aws_dynamodb_table" "governance" {
+  name         = "${var.name_prefix}-agent-governance"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "source_id"
+
+  attribute {
+    name = "source_id"
+    type = "S"
+  }
+}

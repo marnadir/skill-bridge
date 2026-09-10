@@ -66,3 +66,26 @@ resource "aws_lambda_event_source_mapping" "start_cv_processing" {
   ##only failed messages return to the queue
   function_response_types = ["ReportBatchItemFailures"]
 }
+
+##--- external tool executor (doc 5.2-bis: two lambdas, two roles) ---
+
+data "archive_file" "tool_validate_employer" {
+  type        = "zip"
+  source_dir  = "${var.backend_src_dir}/tool-validate-employer"
+  output_path = "${var.build_dir}/tool-validate-employer.zip"
+  excludes    = ["__pycache__"]
+}
+
+resource "aws_lambda_function" "tool_validate_employer" {
+  function_name = "${var.name_prefix}-tool-validate-employer"
+  role          = aws_iam_role.tool_validate_employer.arn
+
+  filename         = data.archive_file.tool_validate_employer.output_path
+  source_code_hash = data.archive_file.tool_validate_employer.output_base64sha256
+
+  runtime = "python3.13"
+  handler = "lambda_function.lambda_handler"
+  ##own short timeout (doc 5.2-bis)
+  timeout = 10
+
+}

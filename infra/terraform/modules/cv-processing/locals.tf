@@ -195,6 +195,11 @@ locals {
         MAX_TOOL_CALLS      = "8"
         TIME_BUDGET_SECONDS = "180"
         TOP_K               = "5"
+        ##external tool v0.5 (doc 5.2-bis), behind feature flag
+        EXTERNAL_TOOL_ENABLED = var.external_tool_enabled ? "true" : "false"
+        EXECUTOR_FUNCTION     = aws_lambda_function.tool_validate_employer.function_name
+        GOVERNANCE_TABLE      = aws_dynamodb_table.governance.name
+        MAX_EXTERNAL_CALLS    = "3"
       }
       statements = [
         {
@@ -215,6 +220,21 @@ locals {
           Effect   = "Allow"
           Action   = "secretsmanager:GetSecretValue"
           Resource = var.vectorstore_secret_arn
+        },
+        {
+          ##decision to the agent, execution outside: the agent can
+          ##invoke ONLY the isolated executor (doc 5.2-bis)
+          Sid      = "InvokeExternalToolExecutor"
+          Effect   = "Allow"
+          Action   = "lambda:InvokeFunction"
+          Resource = aws_lambda_function.tool_validate_employer.arn
+        },
+        {
+          ##shared circuit breaker state (doc 5.3)
+          Sid      = "Breaker"
+          Effect   = "Allow"
+          Action   = ["dynamodb:GetItem", "dynamodb:PutItem"]
+          Resource = aws_dynamodb_table.governance.arn
         },
         local.embed_statement,
       ]
