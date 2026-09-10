@@ -68,3 +68,9 @@ variable "parsing_version" {
   type        = string
   default     = "1"
 }
+
+variable "external_tool_enabled" {
+  description = "Feature flag: expose the external validate_employer tool to the agent (v0.5)"
+  type        = bool
+  default     = false
+}

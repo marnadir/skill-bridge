@@ -125,3 +125,30 @@ resource "aws_iam_role_policy" "start_cv_processing" {
     ]
   })
 }
+
+##--- isolated executor of the external tool (doc 5.2-bis) -----------
+
+##the security boundary is one of PERMISSIONS: logs only — no S3, no
+##profile data, no index. The isolation is provable, not declared
+resource "aws_iam_role" "tool_validate_employer" {
+  name = "${var.name_prefix}-tool-validate-employer-lambda"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect    = "Allow"
+      Principal = { Service = "lambda.amazonaws.com" }
+      Action    = "sts:AssumeRole"
+    }]
+  })
+}
+
+resource "aws_iam_role_policy" "tool_validate_employer" {
+  name = "tool-validate-employer"
+  role = aws_iam_role.tool_validate_employer.id
+
+  policy = jsonencode({
+    Version   = "2012-10-17"
+    Statement = [local.logs_statement]
+  })
+}

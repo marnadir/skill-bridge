@@ -1,0 +1,912 @@
+{
+  "_comment": "Demo registry of verifiable employers for the external tool stub (SOURCE_MODE=ok). Lookup is by normalized alias or registry name.",
+  "companies": [
+    {
+      "registry_name": "Machine Learning Reply S.r.l.",
+      "country": "IT",
+      "aliases": [
+        "machine learning reply"
+      ]
+    },
+    {
+      "registry_name": "Target Reply S.r.l.",
+      "country": "IT",
+      "aliases": [
+        "target reply"
+      ]
+    },
+    {
+      "registry_name": "Reply S.p.A.",
+      "country": "IT",
+      "aliases": [
+        "reply"
+      ]
+    },
+    {
+      "registry_name": "Deloitte Touche Tohmatsu Limited",
+      "country": "GLOBAL",
+      "aliases": [
+        "deloitte"
+      ]
+    },
+    {
+      "registry_name": "Deloitte Risk Advisory S.r.l.",
+      "country": "IT",
+      "aliases": [
+        "deloitte risk advisory"
+      ]
+    },
+    {
+      "registry_name": "SYSGO GmbH",
+      "country": "DE",
+      "aliases": [
+        "sysgo",
+        "sysgo ag"
+      ]
+    },
+    {
+      "registry_name": "Apple Inc.",
+      "country": "US",
+      "aliases": [
+        "apple"
+      ]
+    },
+    {
+      "registry_name": "Microsoft Corporation",
+      "country": "US",
+      "aliases": [
+        "microsoft"
+      ]
+    },
+    {
+      "registry_name": "Alphabet Inc.",
+      "country": "US",
+      "aliases": [
+        "alphabet",
+        "google",
+        "google llc"
+      ]
+    },
+    {
+      "registry_name": "Amazon.com, Inc.",
+      "country": "US",
+      "aliases": [
+        "amazon",
+        "aws",
+        "amazon web services"
+      ]
+    },
+    {
+      "registry_name": "Meta Platforms, Inc.",
+      "country": "US",
+      "aliases": [
+        "meta",
+        "facebook",
+        "instagram",
+        "whatsapp"
+      ]
+    },
+    {
+      "registry_name": "NVIDIA Corporation",
+      "country": "US",
+      "aliases": [
+        "nvidia"
+      ]
+    },
+    {
+      "registry_name": "Netflix, Inc.",
+      "country": "US",
+      "aliases": [
+        "netflix"
+      ]
+    },
+    {
+      "registry_name": "Tesla, Inc.",
+      "country": "US",
+      "aliases": [
+        "tesla"
+      ]
+    },
+    {
+      "registry_name": "Intel Corporation",
+      "country": "US",
+      "aliases": [
+        "intel"
+      ]
+    },
+    {
+      "registry_name": "Advanced Micro Devices, Inc.",
+      "country": "US",
+      "aliases": [
+        "amd"
+      ]
+    },
+    {
+      "registry_name": "International Business Machines Corporation",
+      "country": "US",
+      "aliases": [
+        "ibm"
+      ]
+    },
+    {
+      "registry_name": "Oracle Corporation",
+      "country": "US",
+      "aliases": [
+        "oracle"
+      ]
+    },
+    {
+      "registry_name": "SAP SE",
+      "country": "DE",
+      "aliases": [
+        "sap"
+      ]
+    },
+    {
+      "registry_name": "Salesforce, Inc.",
+      "country": "US",
+      "aliases": [
+        "salesforce"
+      ]
+    },
+    {
+      "registry_name": "Adobe Inc.",
+      "country": "US",
+      "aliases": [
+        "adobe"
+      ]
+    },
+    {
+      "registry_name": "Cisco Systems, Inc.",
+      "country": "US",
+      "aliases": [
+        "cisco"
+      ]
+    },
+    {
+      "registry_name": "Dell Technologies Inc.",
+      "country": "US",
+      "aliases": [
+        "dell"
+      ]
+    },
+    {
+      "registry_name": "HP Inc.",
+      "country": "US",
+      "aliases": [
+        "hp",
+        "hewlett packard"
+      ]
+    },
+    {
+      "registry_name": "Hewlett Packard Enterprise Company",
+      "country": "US",
+      "aliases": [
+        "hpe",
+        "hewlett packard enterprise"
+      ]
+    },
+    {
+      "registry_name": "Lenovo Group Limited",
+      "country": "CN",
+      "aliases": [
+        "lenovo"
+      ]
+    },
+    {
+      "registry_name": "Samsung Electronics Co., Ltd.",
+      "country": "KR",
+      "aliases": [
+        "samsung"
+      ]
+    },
+    {
+      "registry_name": "Sony Group Corporation",
+      "country": "JP",
+      "aliases": [
+        "sony"
+      ]
+    },
+    {
+      "registry_name": "LG Electronics Inc.",
+      "country": "KR",
+      "aliases": [
+        "lg"
+      ]
+    },
+    {
+      "registry_name": "Huawei Technologies Co., Ltd.",
+      "country": "CN",
+      "aliases": [
+        "huawei"
+      ]
+    },
+    {
+      "registry_name": "Xiaomi Corporation",
+      "country": "CN",
+      "aliases": [
+        "xiaomi"
+      ]
+    },
+    {
+      "registry_name": "Tencent Holdings Limited",
+      "country": "CN",
+      "aliases": [
+        "tencent"
+      ]
+    },
+    {
+      "registry_name": "Alibaba Group Holding Limited",
+      "country": "CN",
+      "aliases": [
+        "alibaba"
+      ]
+    },
+    {
+      "registry_name": "Baidu, Inc.",
+      "country": "CN",
+      "aliases": [
+        "baidu"
+      ]
+    },
+    {
+      "registry_name": "ByteDance Ltd.",
+      "country": "CN",
+      "aliases": [
+        "bytedance",
+        "tiktok"
+      ]
+    },
+    {
+      "registry_name": "Uber Technologies, Inc.",
+      "country": "US",
+      "aliases": [
+        "uber"
+      ]
+    },
+    {
+      "registry_name": "Lyft, Inc.",
+      "country": "US",
+      "aliases": [
+        "lyft"
+      ]
+    },
+    {
+      "registry_name": "Airbnb, Inc.",
+      "country": "US",
+      "aliases": [
+        "airbnb"
+      ]
+    },
+    {
+      "registry_name": "Booking Holdings Inc.",
+      "country": "US",
+      "aliases": [
+        "booking",
+        "booking.com"
+      ]
+    },
+    {
+      "registry_name": "Expedia Group, Inc.",
+      "country": "US",
+      "aliases": [
+        "expedia"
+      ]
+    },
+    {
+      "registry_name": "Spotify Technology S.A.",
+      "country": "SE",
+      "aliases": [
+        "spotify"
+      ]
+    },
+    {
+      "registry_name": "X Corp.",
+      "country": "US",
+      "aliases": [
+        "x",
+        "twitter"
+      ]
+    },
+    {
+      "registry_name": "LinkedIn Corporation",
+      "country": "US",
+      "aliases": [
+        "linkedin"
+      ]
+    },
+    {
+      "registry_name": "Snap Inc.",
+      "country": "US",
+      "aliases": [
+        "snap",
+        "snapchat"
+      ]
+    },
+    {
+      "registry_name": "Pinterest, Inc.",
+      "country": "US",
+      "aliases": [
+        "pinterest"
+      ]
+    },
+    {
+      "registry_name": "Reddit, Inc.",
+      "country": "US",
+      "aliases": [
+        "reddit"
+      ]
+    },
+    {
+      "registry_name": "Dropbox, Inc.",
+      "country": "US",
+      "aliases": [
+        "dropbox"
+      ]
+    },
+    {
+      "registry_name": "Zoom Video Communications, Inc.",
+      "country": "US",
+      "aliases": [
+        "zoom"
+      ]
+    },
+    {
+      "registry_name": "eBay Inc.",
+      "country": "US",
+      "aliases": [
+        "ebay"
+      ]
+    },
+    {
+      "registry_name": "PayPal Holdings, Inc.",
+      "country": "US",
+      "aliases": [
+        "paypal"
+      ]
+    },
+    {
+      "registry_name": "Stripe, Inc.",
+      "country": "US",
+      "aliases": [
+        "stripe"
+      ]
+    },
+    {
+      "registry_name": "Block, Inc.",
+      "country": "US",
+      "aliases": [
+        "block",
+        "square"
+      ]
+    },
+    {
+      "registry_name": "Visa Inc.",
+      "country": "US",
+      "aliases": [
+        "visa"
+      ]
+    },
+    {
+      "registry_name": "Mastercard Incorporated",
+      "country": "US",
+      "aliases": [
+        "mastercard"
+      ]
+    },
+    {
+      "registry_name": "Adyen N.V.",
+      "country": "NL",
+      "aliases": [
+        "adyen"
+      ]
+    },
+    {
+      "registry_name": "Revolut Ltd",
+      "country": "GB",
+      "aliases": [
+        "revolut"
+      ]
+    },
+    {
+      "registry_name": "Klarna Bank AB",
+      "country": "SE",
+      "aliases": [
+        "klarna"
+      ]
+    },
+    {
+      "registry_name": "Coinbase Global, Inc.",
+      "country": "US",
+      "aliases": [
+        "coinbase"
+      ]
+    },
+    {
+      "registry_name": "Shopify Inc.",
+      "country": "CA",
+      "aliases": [
+        "shopify"
+      ]
+    },
+    {
+      "registry_name": "Atlassian Corporation",
+      "country": "AU",
+      "aliases": [
+        "atlassian",
+        "jira"
+      ]
+    },
+    {
+      "registry_name": "GitHub, Inc.",
+      "country": "US",
+      "aliases": [
+        "github"
+      ]
+    },
+    {
+      "registry_name": "GitLab Inc.",
+      "country": "US",
+      "aliases": [
+        "gitlab"
+      ]
+    },
+    {
+      "registry_name": "Twilio Inc.",
+      "country": "US",
+      "aliases": [
+        "twilio"
+      ]
+    },
+    {
+      "registry_name": "Cloudflare, Inc.",
+      "country": "US",
+      "aliases": [
+        "cloudflare"
+      ]
+    },
+    {
+      "registry_name": "Akamai Technologies, Inc.",
+      "country": "US",
+      "aliases": [
+        "akamai"
+      ]
+    },
+    {
+      "registry_name": "Datadog, Inc.",
+      "country": "US",
+      "aliases": [
+        "datadog"
+      ]
+    },
+    {
+      "registry_name": "Snowflake Inc.",
+      "country": "US",
+      "aliases": [
+        "snowflake"
+      ]
+    },
+    {
+      "registry_name": "Databricks, Inc.",
+      "country": "US",
+      "aliases": [
+        "databricks"
+      ]
+    },
+    {
+      "registry_name": "MongoDB, Inc.",
+      "country": "US",
+      "aliases": [
+        "mongodb"
+      ]
+    },
+    {
+      "registry_name": "Elastic N.V.",
+      "country": "NL",
+      "aliases": [
+        "elastic",
+        "elasticsearch"
+      ]
+    },
+    {
+      "registry_name": "Redis Ltd.",
+      "country": "US",
+      "aliases": [
+        "redis"
+      ]
+    },
+    {
+      "registry_name": "Confluent, Inc.",
+      "country": "US",
+      "aliases": [
+        "confluent"
+      ]
+    },
+    {
+      "registry_name": "HashiCorp, Inc.",
+      "country": "US",
+      "aliases": [
+        "hashicorp"
+      ]
+    },
+    {
+      "registry_name": "Docker, Inc.",
+      "country": "US",
+      "aliases": [
+        "docker"
+      ]
+    },
+    {
+      "registry_name": "VMware LLC",
+      "country": "US",
+      "aliases": [
+        "vmware"
+      ]
+    },
+    {
+      "registry_name": "Red Hat, Inc.",
+      "country": "US",
+      "aliases": [
+        "red hat",
+        "redhat"
+      ]
+    },
+    {
+      "registry_name": "Canonical Ltd.",
+      "country": "GB",
+      "aliases": [
+        "canonical",
+        "ubuntu"
+      ]
+    },
+    {
+      "registry_name": "Palantir Technologies Inc.",
+      "country": "US",
+      "aliases": [
+        "palantir"
+      ]
+    },
+    {
+      "registry_name": "Splunk LLC",
+      "country": "US",
+      "aliases": [
+        "splunk"
+      ]
+    },
+    {
+      "registry_name": "ServiceNow, Inc.",
+      "country": "US",
+      "aliases": [
+        "servicenow"
+      ]
+    },
+    {
+      "registry_name": "Workday, Inc.",
+      "country": "US",
+      "aliases": [
+        "workday"
+      ]
+    },
+    {
+      "registry_name": "Intuit Inc.",
+      "country": "US",
+      "aliases": [
+        "intuit"
+      ]
+    },
+    {
+      "registry_name": "Zendesk, Inc.",
+      "country": "US",
+      "aliases": [
+        "zendesk"
+      ]
+    },
+    {
+      "registry_name": "HubSpot, Inc.",
+      "country": "US",
+      "aliases": [
+        "hubspot"
+      ]
+    },
+    {
+      "registry_name": "Asana, Inc.",
+      "country": "US",
+      "aliases": [
+        "asana"
+      ]
+    },
+    {
+      "registry_name": "Notion Labs, Inc.",
+      "country": "US",
+      "aliases": [
+        "notion"
+      ]
+    },
+    {
+      "registry_name": "Figma, Inc.",
+      "country": "US",
+      "aliases": [
+        "figma"
+      ]
+    },
+    {
+      "registry_name": "Canva Pty Ltd",
+      "country": "AU",
+      "aliases": [
+        "canva"
+      ]
+    },
+    {
+      "registry_name": "Slack Technologies, LLC",
+      "country": "US",
+      "aliases": [
+        "slack"
+      ]
+    },
+    {
+      "registry_name": "Unity Technologies",
+      "country": "US",
+      "aliases": [
+        "unity"
+      ]
+    },
+    {
+      "registry_name": "Epic Games, Inc.",
+      "country": "US",
+      "aliases": [
+        "epic games"
+      ]
+    },
+    {
+      "registry_name": "OpenAI, Inc.",
+      "country": "US",
+      "aliases": [
+        "openai"
+      ]
+    },
+    {
+      "registry_name": "Anthropic PBC",
+      "country": "US",
+      "aliases": [
+        "anthropic"
+      ]
+    },
+    {
+      "registry_name": "Google DeepMind",
+      "country": "GB",
+      "aliases": [
+        "deepmind",
+        "google deepmind"
+      ]
+    },
+    {
+      "registry_name": "Hugging Face, Inc.",
+      "country": "US",
+      "aliases": [
+        "hugging face",
+        "huggingface"
+      ]
+    },
+    {
+      "registry_name": "Mistral AI",
+      "country": "FR",
+      "aliases": [
+        "mistral",
+        "mistral ai"
+      ]
+    },
+    {
+      "registry_name": "Cohere Inc.",
+      "country": "CA",
+      "aliases": [
+        "cohere"
+      ]
+    },
+    {
+      "registry_name": "Scale AI, Inc.",
+      "country": "US",
+      "aliases": [
+        "scale ai"
+      ]
+    },
+    {
+      "registry_name": "Perplexity AI, Inc.",
+      "country": "US",
+      "aliases": [
+        "perplexity"
+      ]
+    },
+    {
+      "registry_name": "Qualcomm Incorporated",
+      "country": "US",
+      "aliases": [
+        "qualcomm"
+      ]
+    },
+    {
+      "registry_name": "Broadcom Inc.",
+      "country": "US",
+      "aliases": [
+        "broadcom"
+      ]
+    },
+    {
+      "registry_name": "Texas Instruments Incorporated",
+      "country": "US",
+      "aliases": [
+        "texas instruments"
+      ]
+    },
+    {
+      "registry_name": "Arm Holdings plc",
+      "country": "GB",
+      "aliases": [
+        "arm"
+      ]
+    },
+    {
+      "registry_name": "Taiwan Semiconductor Manufacturing Company",
+      "country": "TW",
+      "aliases": [
+        "tsmc"
+      ]
+    },
+    {
+      "registry_name": "ASML Holding N.V.",
+      "country": "NL",
+      "aliases": [
+        "asml"
+      ]
+    },
+    {
+      "registry_name": "Micron Technology, Inc.",
+      "country": "US",
+      "aliases": [
+        "micron"
+      ]
+    },
+    {
+      "registry_name": "STMicroelectronics N.V.",
+      "country": "CH",
+      "aliases": [
+        "stmicroelectronics",
+        "stm"
+      ]
+    },
+    {
+      "registry_name": "Ericsson",
+      "country": "SE",
+      "aliases": [
+        "ericsson"
+      ]
+    },
+    {
+      "registry_name": "Nokia Corporation",
+      "country": "FI",
+      "aliases": [
+        "nokia"
+      ]
+    },
+    {
+      "registry_name": "Siemens AG",
+      "country": "DE",
+      "aliases": [
+        "siemens"
+      ]
+    },
+    {
+      "registry_name": "Robert Bosch GmbH",
+      "country": "DE",
+      "aliases": [
+        "bosch"
+      ]
+    },
+    {
+      "registry_name": "Koninklijke Philips N.V.",
+      "country": "NL",
+      "aliases": [
+        "philips"
+      ]
+    },
+    {
+      "registry_name": "SpaceX",
+      "country": "US",
+      "aliases": [
+        "spacex",
+        "space exploration technologies"
+      ]
+    },
+    {
+      "registry_name": "Accenture plc",
+      "country": "IE",
+      "aliases": [
+        "accenture"
+      ]
+    },
+    {
+      "registry_name": "Capgemini SE",
+      "country": "FR",
+      "aliases": [
+        "capgemini"
+      ]
+    },
+    {
+      "registry_name": "Infosys Limited",
+      "country": "IN",
+      "aliases": [
+        "infosys"
+      ]
+    },
+    {
+      "registry_name": "Tata Consultancy Services Limited",
+      "country": "IN",
+      "aliases": [
+        "tcs",
+        "tata consultancy services"
+      ]
+    },
+    {
+      "registry_name": "Wipro Limited",
+      "country": "IN",
+      "aliases": [
+        "wipro"
+      ]
+    },
+    {
+      "registry_name": "Cognizant Technology Solutions",
+      "country": "US",
+      "aliases": [
+        "cognizant"
+      ]
+    },
+    {
+      "registry_name": "Thoughtworks, Inc.",
+      "country": "US",
+      "aliases": [
+        "thoughtworks"
+      ]
+    },
+    {
+      "registry_name": "EPAM Systems, Inc.",
+      "country": "US",
+      "aliases": [
+        "epam"
+      ]
+    },
+    {
+      "registry_name": "Globant S.A.",
+      "country": "AR",
+      "aliases": [
+        "globant"
+      ]
+    },
+    {
+      "registry_name": "Bending Spoons S.p.A.",
+      "country": "IT",
+      "aliases": [
+        "bending spoons"
+      ]
+    },
+    {
+      "registry_name": "Satispay S.p.A.",
+      "country": "IT",
+      "aliases": [
+        "satispay"
+      ]
+    },
+    {
+      "registry_name": "TeamSystem S.p.A.",
+      "country": "IT",
+      "aliases": [
+        "teamsystem"
+      ]
+    },
+    {
+      "registry_name": "Leonardo S.p.A.",
+      "country": "IT",
+      "aliases": [
+        "leonardo"
+      ]
+    }
+  ]
+}
