@@ -1,0 +1,42 @@
+{
+  "_comment": "Golden set for the retrieval stage (doc 7: recall@k and MRR measured separately from generation). Queries simulate candidate-profile angles; expected_jd must appear in the top-k of jd_chunks.",
+  "k": 3,
+  "cases": [
+    {
+      "id": "ret-typical-de",
+      "kind": "typical",
+      "query": "senior data engineer with Apache Spark, Airflow, ETL pipelines on AWS",
+      "expected_jd": "jd-001"
+    },
+    {
+      "id": "ret-typical-genai",
+      "kind": "typical",
+      "query": "generative AI engineer building RAG applications on Amazon Bedrock with vector search",
+      "expected_jd": "jd-003"
+    },
+    {
+      "id": "ret-typical-frontend",
+      "kind": "typical",
+      "query": "frontend developer building React and TypeScript single page applications",
+      "expected_jd": "jd-004"
+    },
+    {
+      "id": "ret-typical-devops",
+      "kind": "typical",
+      "query": "platform engineer running Kubernetes on EKS with Terraform and CI/CD golden paths",
+      "expected_jd": "jd-005"
+    },
+    {
+      "id": "ret-edge-italian",
+      "kind": "edge",
+      "query": "ingegnere del software backend con microservizi Java Spring e streaming di eventi Kafka",
+      "expected_jd": "jd-006"
+    },
+    {
+      "id": "ret-edge-indirect",
+      "kind": "edge",
+      "query": "I turn business questions into dashboards and reliable metrics using dbt and SQL on the warehouse",
+      "expected_jd": "jd-007"
+    }
+  ]
+}
