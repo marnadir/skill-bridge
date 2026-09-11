@@ -24,6 +24,7 @@ from typing import Any
 
 import boto3
 from pydantic import BaseModel
+from skillbridge_common.metrics import Metrics
 
 s3 = boto3.client("s3")
 bedrock = boto3.client("bedrock-runtime")
@@ -72,6 +73,9 @@ PROMPT = "\n".join(
 ).strip()
 
 TOP_K = 5
+
+##per-invocation metrics instance (reset by the handler)
+_metrics = Metrics("normalize-skills")
 
 # taxonomy shipped in the deploy zip; embeddings computed lazily at
 # first stage-2 need and cached for the lambda lifetime
@@ -160,6 +164,8 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     Raises:
         ValueError: If a model response contains no tool call.
     """
+    global _metrics
+    _metrics = Metrics("normalize-skills")
     job_id = event["job_id"]
     bucket = event["bucket"]
     guarded_key = event["guarded_key"]
@@ -206,6 +212,9 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     )
 
     skills = sorted({entry.id for entry in matched.values()})
+    _metrics.add("SkillsMatched", len(skills))
+    _metrics.add("SkillsUnmatched", len(unmatched))
+    _metrics.flush(job_id)
     return {"normalized_key": normalized_key, "skills": skills, "unmatched": unmatched}
 
 
@@ -232,6 +241,7 @@ def _extract_mentions(text: str) -> list[SkillMention]:
         },
         inferenceConfig={"maxTokens": 3000, "temperature": 0},
     )
+    _metrics.add_converse_usage(response, MODEL_ID)
     return MentionList.model_validate(_tool_input(response, EXTRACT_TOOL["name"])).mentions
 
 
@@ -284,6 +294,7 @@ def _match_ambiguous(ambiguous: list[SkillMention]) -> dict[str, Any]:
         inferenceConfig={"maxTokens": 2000, "temperature": 0},
     )
 
+    _metrics.add_converse_usage(response, MODEL_ID)
     by_id = {entry.id: entry for entry in TAXONOMY}
     matched: dict[str, TaxonomyEntry] = {}
     unmatched: list[str] = []
@@ -328,6 +339,7 @@ def _embed(texts: list[str], input_type: str) -> list[list[float]]:
             modelId=EMBED_MODEL_ID,
             body=json.dumps({"texts": texts[start : start + 96], "input_type": input_type}),
         )
+        _metrics.add_invoke_usage(response, EMBED_MODEL_ID)
         vectors.extend(json.loads(response["body"].read())["embeddings"])
     return vectors
 

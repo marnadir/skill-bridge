@@ -20,6 +20,7 @@ from typing import Any, Literal
 
 import boto3
 from pydantic import BaseModel
+from skillbridge_common.metrics import Metrics
 
 s3 = boto3.client("s3")
 bedrock = boto3.client("bedrock-runtime")
@@ -42,6 +43,9 @@ MODEL_ID = os.environ["MODEL_ID"]
 PII_MAP_TABLE = os.environ["PII_MAP_TABLE"]
 # prompt.yaml: a single "prompt: |" block scalar; the runtime has no
 # PyYAML, so the block is read directly (the file stays valid YAML)
+##per-invocation metrics instance (reset by the handler)
+_metrics = Metrics("redact-pii")
+
 _prompt_lines = (Path(__file__).parent / "prompt.yaml").read_text().splitlines()
 PROMPT = "\n".join(
     line.removeprefix("  ") for line in _prompt_lines[_prompt_lines.index("prompt: |") + 1 :]
@@ -104,6 +108,8 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     Raises:
         ValueError: If the model response contains no tool call.
     """
+    global _metrics
+    _metrics = Metrics("redact-pii")
     job_id = event["job_id"]
     bucket = event["bucket"]
     markdown_key = event["markdown_key"]
@@ -124,6 +130,8 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         ContentType="text/markdown; charset=utf-8",
     )
 
+    _metrics.add("PiiCount", len(pii_map))
+    _metrics.flush(job_id)
     return {"redacted_key": redacted_key, "pii_count": len(pii_map)}
 
 
@@ -170,6 +178,7 @@ def _redact_with_llm(text: str, pii_map: dict[str, str]) -> str:
         inferenceConfig={"maxTokens": 2000, "temperature": 0},
     )
 
+    _metrics.add_converse_usage(response, MODEL_ID)
     counters = dict.fromkeys(LLM_TYPES.values(), 0)
     for entity in EntityList.model_validate(_tool_input(response)).entities:
         span, prefix = entity.text, LLM_TYPES[entity.type]

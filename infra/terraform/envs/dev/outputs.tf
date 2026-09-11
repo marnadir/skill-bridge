@@ -28,3 +28,11 @@ output "vectorstore_cluster_arn" {
 output "vectorstore_secret_arn" {
   value = module.vectorstore.secret_arn
 }
+
+output "alerts_topic_arn" {
+  value = module.cv_processing.alerts_topic_arn
+}
+
+output "dashboard_name" {
+  value = module.cv_processing.dashboard_name
+}

@@ -74,3 +74,9 @@ variable "external_tool_enabled" {
   type        = bool
   default     = false
 }
+
+variable "hourly_cost_alarm_eur" {
+  description = "Hourly Bedrock spend threshold for the cost alarm (EUR)"
+  type        = number
+  default     = 1
+}

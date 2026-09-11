@@ -22,4 +22,7 @@ python3 -m pip install --quiet --upgrade --no-compile \
   --only-binary=:all: \
   "pydantic==2.12.*" "strands-agents==1.55.*"
 
+# shared skill-bridge utilities ride in the same layer
+cp -R "$(dirname "$0")/../backend/shared/skillbridge_common" "$TARGET/"
+
 echo "lambda layer built at $TARGET"

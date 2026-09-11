@@ -20,6 +20,7 @@ from typing import Any
 
 import boto3
 from pydantic import BaseModel
+from skillbridge_common.metrics import Metrics
 
 s3 = boto3.client("s3")
 bedrock = boto3.client("bedrock-runtime")
@@ -51,6 +52,9 @@ SECRET_ARN = os.environ["SECRET_ARN"]
 DATABASE = os.environ["DATABASE"]
 
 EMBEDDING_DIM = 1024
+
+##per-invocation metrics instance (reset by the handler)
+_metrics = Metrics("embed-cv")
 # waking a paused cluster takes ~15s: bounded retry
 RESUME_MAX_WAIT_SECONDS = 90
 
@@ -100,6 +104,8 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     Returns:
         dict[str, Any]: {"chunks_indexed": <int>, "doc_version": <int>}.
     """
+    global _metrics
+    _metrics = Metrics("embed-cv")
     job_id = event["job_id"]
     bucket = event["bucket"]
     chunks_key = event["chunks_key"]
@@ -153,6 +159,8 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         rds.rollback_transaction(resourceArn=CLUSTER_ARN, secretArn=SECRET_ARN, transactionId=tx)
         raise
 
+    _metrics.add("ChunksIndexed", len(sections))
+    _metrics.flush(job_id)
     return {"chunks_indexed": len(sections), "doc_version": doc_version}
 
 
@@ -262,5 +270,6 @@ def _embed(texts: list[str]) -> list[list[float]]:
                 {"texts": texts[start : start + 96], "input_type": "search_document"}
             ),
         )
+        _metrics.add_invoke_usage(response, EMBED_MODEL_ID)
         vectors.extend(json.loads(response["body"].read())["embeddings"])
     return vectors

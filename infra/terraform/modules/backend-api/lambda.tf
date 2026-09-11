@@ -19,6 +19,10 @@ resource "aws_lambda_function" "backend_api" {
   timeout = 10
   layers  = [var.python_layer_arn]
 
+  tracing_config {
+    mode = "Active"
+  }
+
   environment {
     variables = {
       BUCKET_NAME = var.cv_bucket_name

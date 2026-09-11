@@ -24,6 +24,7 @@ from typing import Any, Literal
 
 import boto3
 from pydantic import BaseModel, Field
+from skillbridge_common.metrics import Metrics
 from strands import Agent, tool
 from strands.models import BedrockModel
 
@@ -73,6 +74,9 @@ EXTERNAL_PROMPT = "\n".join(
 
 ##mutable budget state shared with the tool closures (reset per invoke)
 _budget = {"tool_calls": 0, "external_calls": 0, "deadline": 0.0, "exhausted": False}
+
+##per-invocation metrics instance (reset by the handler)
+_metrics = Metrics("agent-matching")
 
 
 class JdMatch(BaseModel):
@@ -150,12 +154,12 @@ def search_jd(query: str) -> str:
         return "BUDGET EXHAUSTED: no more searches allowed. Produce the final report now."
     _budget["tool_calls"] += 1
 
-    embedding = json.loads(
-        bedrock.invoke_model(
-            modelId=EMBED_MODEL_ID,
-            body=json.dumps({"texts": [query], "input_type": "search_query"}),
-        )["body"].read()
-    )["embeddings"][0]
+    embed_response = bedrock.invoke_model(
+        modelId=EMBED_MODEL_ID,
+        body=json.dumps({"texts": [query], "input_type": "search_query"}),
+    )
+    _metrics.add_invoke_usage(embed_response, EMBED_MODEL_ID)
+    embedding = json.loads(embed_response["body"].read())["embeddings"][0]
 
     result = rds.execute_statement(
         resourceArn=CLUSTER_ARN,
@@ -341,6 +345,7 @@ def _breaker_record(success: bool) -> None:
         },
     )
     if state == "OPEN":
+        _metrics.add("BreakerOpened", 1)
         print(f"[breaker] employer-source OPEN after {failures} failures")
 
 
@@ -357,6 +362,8 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         dict[str, Any]: {"status": "completed"|"budget_exhausted",
             "report": <MatchReport dump>, "budget": {...}}.
     """
+    global _metrics
+    _metrics = Metrics("agent-matching")
     bucket = event["bucket"]
     chunks_key = event["chunks_key"]
     skills = event.get("skills", [])
@@ -390,11 +397,26 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         "Produce the final match report for every job description you evaluated.",
     )
 
+    ##agent cost: strands accumulates usage across the whole loop
+    try:
+        _metrics.add_usage_dict(dict(agent.event_loop_metrics.accumulated_usage), MODEL_ID)
+    except Exception as exc:  # noqa: BLE001 - metrics must never fail the job
+        print(f"[metrics] agent usage unavailable: {type(exc).__name__}")
+
     ##evidence rule (doc 6): no evidence = no match
     for match in report.matches:
         if match.outcome == "match" and not match.evidences:
             print(f"[evidence-rule] {match.jd_id} demoted: match without evidences")
             match.outcome = "not_verifiable"
+
+    _metrics.add("ToolCalls", _budget["tool_calls"])
+    _metrics.add("ExternalCalls", _budget["external_calls"])
+    _metrics.add("BudgetExhausted", 1 if _budget["exhausted"] else 0)
+    for outcome in ("match", "no_match", "not_verifiable"):
+        _metrics.add(
+            f"Outcome_{outcome}", sum(1 for m in report.matches if m.outcome == outcome)
+        )
+    _metrics.flush(event.get("job_id"))
 
     return {
         "status": "budget_exhausted" if _budget["exhausted"] else "completed",
