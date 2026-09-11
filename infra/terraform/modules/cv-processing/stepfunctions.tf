@@ -3,6 +3,11 @@ resource "aws_sfn_state_machine" "cv_processing" {
   name     = "${var.name_prefix}-cv-processing"
   role_arn = aws_iam_role.cv_processing_sfn.arn
 
+  ##execution history + X-Ray = the v0 tracing story (doc 7)
+  tracing_configuration {
+    enabled = true
+  }
+
   definition = jsonencode({
     Comment = "CV processing pipeline - ingestion steps (doc sez. 4)"
     StartAt = "Parsing"

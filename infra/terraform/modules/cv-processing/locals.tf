@@ -21,6 +21,16 @@ locals {
     Resource = "arn:aws:bedrock:eu-central-1::foundation-model/${var.embed_model_id}"
   }
 
+  xray_statement = {
+    Sid    = "Xray"
+    Effect = "Allow"
+    Action = [
+      "xray:PutTraceSegments",
+      "xray:PutTelemetryRecords",
+    ]
+    Resource = "*"
+  }
+
   logs_statement = {
     Sid    = "Logs"
     Effect = "Allow"

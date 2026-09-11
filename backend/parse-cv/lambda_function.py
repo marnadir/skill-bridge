@@ -15,6 +15,7 @@ from typing import Any
 
 import boto3
 from pydantic import BaseModel
+from skillbridge_common.metrics import Metrics
 
 s3 = boto3.client("s3")
 bedrock = boto3.client("bedrock-runtime")
@@ -91,6 +92,7 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     job_id = event["job_id"]
     bucket = event["bucket"]
     key = event["key"]
+    metrics = Metrics("parse-cv")
 
     doc_format = key.rsplit(".", 1)[-1].lower()
     if doc_format not in SUPPORTED_FORMATS:
@@ -119,8 +121,14 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         inferenceConfig={"maxTokens": MAX_TOKENS, "temperature": 0},
     )
 
+    metrics.add_converse_usage(response, MODEL_ID)
     markdown = CvMarkdown.model_validate(_tool_input(response)).markdown
-    _sanity_check(markdown)
+    try:
+        _sanity_check(markdown)
+    except SanityCheckFailed:
+        metrics.add("SanityCheckFailed", 1)
+        metrics.flush(job_id)
+        raise
 
     markdown_key = f"markdown/{job_id}/cv.md"
     s3.put_object(
@@ -130,6 +138,7 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         ContentType="text/markdown; charset=utf-8",
     )
 
+    metrics.flush(job_id)
     return {"markdown_key": markdown_key}
 
 

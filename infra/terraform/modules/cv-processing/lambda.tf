@@ -24,6 +24,10 @@ resource "aws_lambda_function" "step" {
   memory_size = each.value.memory_size
   layers      = [var.python_layer_arn]
 
+  tracing_config {
+    mode = "Active"
+  }
+
   environment {
     variables = each.value.env
   }
@@ -48,6 +52,10 @@ resource "aws_lambda_function" "start_cv_processing" {
   runtime = "python3.13"
   handler = "lambda_function.lambda_handler"
   timeout = 10
+
+  tracing_config {
+    mode = "Active"
+  }
 
   environment {
     variables = {
@@ -88,4 +96,7 @@ resource "aws_lambda_function" "tool_validate_employer" {
   ##own short timeout (doc 5.2-bis)
   timeout = 10
 
+  tracing_config {
+    mode = "Active"
+  }
 }

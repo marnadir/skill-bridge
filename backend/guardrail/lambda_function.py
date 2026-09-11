@@ -17,6 +17,7 @@ from typing import Any
 
 import boto3
 from pydantic import BaseModel
+from skillbridge_common.metrics import Metrics
 
 s3 = boto3.client("s3")
 bedrock = boto3.client("bedrock-runtime")
@@ -91,6 +92,8 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         inferenceConfig={"maxTokens": 2000, "temperature": 0},
     )
 
+    metrics = Metrics("guardrail")
+    metrics.add_converse_usage(response, MODEL_ID)
     scan = InjectionScan.model_validate(_tool_input(response))
     spans = [s for s in scan.suspicious_spans if s and s in text]
     for span in spans:
@@ -107,6 +110,8 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         ContentType="text/markdown; charset=utf-8",
     )
 
+    metrics.add("FlaggedSpans", len(spans))
+    metrics.flush(job_id)
     return {"guarded_key": guarded_key, "flagged_spans": len(spans)}
 
 

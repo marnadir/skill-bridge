@@ -13,6 +13,7 @@ from typing import Any, Literal
 
 import boto3
 from pydantic import BaseModel
+from skillbridge_common.metrics import Metrics
 
 s3 = boto3.client("s3")
 bedrock = boto3.client("bedrock-runtime")
@@ -138,6 +139,8 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         inferenceConfig={"maxTokens": 8000, "temperature": 0},
     )
 
+    metrics = Metrics("chunk-cv")
+    metrics.add_converse_usage(response, MODEL_ID)
     sections = SectionList.model_validate(_tool_input(response)).sections
     if not sections:
         raise ValueError("chunking produced zero sections")
@@ -159,6 +162,8 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         ContentType="application/json",
     )
 
+    metrics.add("ChunkCount", len(chunks.sections))
+    metrics.flush(job_id)
     return {"chunks_key": chunks_key, "chunk_count": len(chunks.sections)}
 
 

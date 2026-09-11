@@ -26,7 +26,7 @@ resource "aws_iam_role_policy" "step" {
     Version = "2012-10-17"
     Statement = concat(
       each.value.statements,
-      [local.bedrock_statement, local.logs_statement],
+      [local.bedrock_statement, local.logs_statement, local.xray_statement],
     )
   })
 }
@@ -69,6 +69,17 @@ resource "aws_iam_role_policy" "cv_processing_sfn" {
         Effect   = "Allow"
         Action   = "dynamodb:UpdateItem"
         Resource = var.jobs_table_arn
+      },
+      {
+        Sid    = "Xray"
+        Effect = "Allow"
+        Action = [
+          "xray:PutTraceSegments",
+          "xray:PutTelemetryRecords",
+          "xray:GetSamplingRules",
+          "xray:GetSamplingTargets",
+        ]
+        Resource = "*"
       },
     ]
   })
@@ -122,6 +133,7 @@ resource "aws_iam_role_policy" "start_cv_processing" {
         Resource = var.jobs_table_arn
       },
       local.logs_statement,
+      local.xray_statement,
     ]
   })
 }
@@ -149,6 +161,6 @@ resource "aws_iam_role_policy" "tool_validate_employer" {
 
   policy = jsonencode({
     Version   = "2012-10-17"
-    Statement = [local.logs_statement]
+    Statement = [local.logs_statement, local.xray_statement]
   })
 }

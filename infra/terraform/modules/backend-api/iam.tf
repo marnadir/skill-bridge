@@ -48,6 +48,15 @@ resource "aws_iam_role_policy" "backend_api" {
         ]
         Resource = "arn:aws:logs:*:${data.aws_caller_identity.current.account_id}:*"
       },
+      {
+        Sid    = "Xray"
+        Effect = "Allow"
+        Action = [
+          "xray:PutTraceSegments",
+          "xray:PutTelemetryRecords",
+        ]
+        Resource = "*"
+      },
     ]
   })
 }
