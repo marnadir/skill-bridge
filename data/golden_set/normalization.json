@@ -1,0 +1,61 @@
+{
+  "_comment": "Golden set for the normalization stage (doc 7). Mix: typical / edge (typos, Italian, multiword) cases. expected = canonical ids that MUST be found; forbidden = ids that must NOT be found.",
+  "cases": [
+    {
+      "id": "norm-typical-1",
+      "kind": "typical",
+      "text": "# Profilo\nSenior engineer con esperienza in Python, AWS e Terraform.\nHo costruito pipeline CI/CD con GitHub Actions e container Docker.",
+      "expected": ["python", "aws", "terraform", "ci-cd", "docker"],
+      "forbidden": []
+    },
+    {
+      "id": "norm-typical-2",
+      "kind": "typical",
+      "text": "# Profile\nBackend developer: Java, Spring Boot, Apache Kafka, PostgreSQL.\nComfortable with REST API design and microservices.",
+      "expected": ["java", "spring", "kafka", "postgresql", "rest-api", "microservices"],
+      "forbidden": []
+    },
+    {
+      "id": "norm-typical-3",
+      "kind": "typical",
+      "text": "# Data scientist\nMachine learning con scikit-learn e deep learning con PyTorch.\nEsperienza NLP e deployment su Amazon SageMaker.",
+      "expected": ["machine-learning", "deep-learning", "nlp", "sagemaker"],
+      "forbidden": []
+    },
+    {
+      "id": "norm-edge-typos",
+      "kind": "edge",
+      "text": "# CV\nLinguaggi: Phyton, Javascrpt.\nOrchestrazione con k8s e configurazione su GCP.",
+      "expected": ["python", "kubernetes", "gcp"],
+      "forbidden": []
+    },
+    {
+      "id": "norm-edge-italian-multiword",
+      "kind": "edge",
+      "text": "# Esperienza\nMi occupo di gestione della pipeline dati e apprendimento automatico.\nBuone capacita' di comunicazione e leadership del team.",
+      "expected": ["machine-learning", "communication", "team-leadership"],
+      "forbidden": []
+    },
+    {
+      "id": "norm-edge-ambiguous-go",
+      "kind": "edge",
+      "text": "# Dev\nI go to conferences every year. Programming languages: Go, Rust.\nI use Git daily.",
+      "expected": ["go", "git"],
+      "forbidden": []
+    },
+    {
+      "id": "norm-edge-context",
+      "kind": "edge",
+      "text": "# Note\nHo letto un libro su React ma non l'ho mai usato professionalmente.\nLavoro quotidianamente con TypeScript e Node.js.",
+      "expected": ["typescript", "nodejs"],
+      "forbidden": []
+    },
+    {
+      "id": "norm-negative-cobol",
+      "kind": "edge",
+      "text": "# Legacy\nManutenzione di sistemi COBOL su mainframe z/OS.\nScripting Bash per l'automazione.",
+      "expected": ["bash"],
+      "forbidden": ["python", "java"]
+    }
+  ]
+}

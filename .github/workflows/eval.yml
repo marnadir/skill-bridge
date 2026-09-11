@@ -1,0 +1,73 @@
+name: Eval
+
+##regression eval (doc 7): the golden-set suite runs on every change
+##to prompts/models/pipeline code; a regression beyond threshold
+##blocks the merge. Costs a few cents of Bedrock per run.
+##OPT-IN: disabled by default. Enable by setting the repository
+##variable EVAL_ENABLED to "true" (Settings -> Secrets and variables
+##-> Actions -> Variables, or `gh variable set EVAL_ENABLED --body
+##true`); unset or any other value = the job is skipped.
+on:
+  pull_request:
+    paths:
+      - "backend/**"
+      - "data/golden_set/**"
+      - "data/job_descriptions.json"
+      - "scripts/run_eval.py"
+      - ".github/workflows/eval.yml"
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write ##comparative report posted on the PR
+
+concurrency:
+  group: eval-skill-bridge-dev
+  cancel-in-progress: true
+
+env:
+  AWS_REGION: eu-central-1
+  AWS_ROLE_ARN: arn:aws:iam::820329008292:role/github-actions-ci-skill-bridge
+  TF_DIR: infra/terraform/envs/dev
+
+jobs:
+  eval:
+    if: ${{ vars.EVAL_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      ##the harness reads the vector store coordinates from terraform
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Terraform init
+        run: terraform -chdir=$TF_DIR init -input=false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          pip install --quiet poetry
+          cd backend && poetry install --no-root --quiet
+
+      - name: Run eval
+        run: cd backend && poetry run python ../scripts/run_eval.py --report ../eval-report.md
+
+      ##comparative report on the PR (doc 7)
+      - name: Comment report on PR
+        if: always() && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -f eval-report.md ]; then
+            gh pr comment ${{ github.event.pull_request.number }} --body-file eval-report.md
+          fi

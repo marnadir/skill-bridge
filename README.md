@@ -31,10 +31,6 @@ CV parsing and job-description matching system on AWS — serverless pipeline
       calls for IAM/key — see ADR-002).
 - [ ] KMS encryption + lifecycle/retention on the CV bucket; KMS CMK on the
       `pii-map` table (GDPR retention, doc section 8).
-- [ ] Eval (doc section 7): golden set (~60% typical / 30% edge / 10%
-      adversarial), per-stage metrics (normalization precision/recall,
-      retrieval recall@k and MRR, matching outcomes), regression suite in CI on
-      prompt/model changes with comparative report on the PR.
 - [ ] Web app: job status polling via `GET /jobs/{jobId}` (endpoint already
       live, FE deliberately stops at upload confirmation for now).
 - [ ] Restrict presigned PUT further (content-length-range via presigned POST

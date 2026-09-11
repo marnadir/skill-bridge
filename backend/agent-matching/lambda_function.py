@@ -23,7 +23,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import boto3
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from skillbridge_common.metrics import Metrics
 from strands import Agent, tool
 from strands.models import BedrockModel
@@ -90,6 +90,19 @@ class JdMatch(BaseModel):
         default_factory=list,
         description="Quotes/facts from the candidate profile supporting a match",
     )
+
+    @field_validator("evidences", mode="before")
+    @classmethod
+    def _none_as_empty(cls, value: list[str] | None) -> list[str]:
+        """Tolerate an explicit null from the model on no-match entries.
+
+        Args:
+            value: The raw evidences field (may be None).
+
+        Returns:
+            list[str]: The list, empty when the model sent null.
+        """
+        return value or []
 
 
 class EmployerCheck(BaseModel):
