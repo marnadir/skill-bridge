@@ -3,6 +3,12 @@
 CV parsing and job-description matching system on AWS — serverless pipeline
 (S3, SQS, Step Functions, Bedrock, Aurora pgvector) with a React web app.
 
+## Architecture
+
+![Architecture](assets/architecture.drawio.png)
+
+*The diagram source is [`assets/architecture.drawio`](assets/architecture.drawio) — the PNG embeds the XML, so opening it in draw.io recovers the editable diagram.*
+
 ## What's been built
 
 ### Upload and job tracking
