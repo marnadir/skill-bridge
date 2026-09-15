@@ -154,7 +154,12 @@ def _get_stats() -> dict[str, Any]:
     from datetime import UTC, datetime, timedelta
 
     now = datetime.now(UTC)
-    window_start = now - timedelta(days=STATS_WINDOW_DAYS)
+    ##anchor the window to UTC midnight: get_metric_data aligns its
+    ##daily buckets to StartTime, so a mid-day start would label
+    ##today's cost with yesterday's date (found in browser testing)
+    window_start = (now - timedelta(days=STATS_WINDOW_DAYS)).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
 
     ##--- job counts + daily series from the jobs table ---
     counts = {"COMPLETED": 0, "FAILED": 0, "NEEDS_REVIEW": 0}
