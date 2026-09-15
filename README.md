@@ -17,6 +17,11 @@ CV parsing and job-description matching system on AWS — serverless pipeline
 - Backend API on API Gateway (HTTP API) + Lambda: `POST /jobs` creates the job and
   returns an S3 presigned PUT URL (the file never transits through the backend);
   `GET /jobs/{jobId}` exposes status and results. Requests validated with Pydantic.
+- Authentication with Amazon Cognito: recruiters log in via the Hosted UI
+  (authorization code + PKCE, no secrets in the SPA); JWTs are validated by the
+  API Gateway JWT authorizer BEFORE the Lambda runs — unauthenticated requests
+  get a 401 at zero cost. Jobs carry `created_by` from the verified claims.
+  Accounts are admin-created (no self-signup).
 - Every upload is a tracked job on DynamoDB (`PENDING_UPLOAD -> PROCESSING ->
   COMPLETED / FAILED / NEEDS_REVIEW`), with the error recorded on the job when
   something breaks: no CV is ever lost silently.
@@ -131,8 +136,6 @@ CV parsing and job-description matching system on AWS — serverless pipeline
       `normalize-skills` stage 2 then switches from in-memory kNN to a DB kNN
       query, and the `[taxonomy-queue]` candidates can feed the taxonomy without
       a redeploy.
-- [ ] Auth on the backend API (API Gateway is currently unauthenticated; design
-      calls for IAM/key — see ADR-002).
 - [ ] KMS encryption + lifecycle/retention on the CV bucket; KMS CMK on the
       `pii-map` table (GDPR retention, doc section 8).
 - [ ] Web app: job status polling via `GET /jobs/{jobId}` (endpoint already

@@ -69,10 +69,23 @@ module "vectorstore" {
   skip_final_snapshot = true ##dev environment
 }
 
+module "auth" {
+  source = "../../modules/auth"
+
+  name_prefix = local.name_prefix
+  ##pre-registered post-login return addresses: the real app + local dev
+  callback_urls = [
+    "https://${module.frontend.domain_name}",
+    "http://localhost:5173",
+  ]
+}
+
 module "backend_api" {
   source = "../../modules/backend-api"
 
   name_prefix      = local.name_prefix
+  jwt_issuer       = module.auth.issuer_url
+  jwt_audience     = module.auth.client_id
   cv_bucket_arn    = module.cv_bucket.bucket_arn
   cv_bucket_name   = module.cv_bucket.bucket_id
   allowed_origins  = local.fe_origins

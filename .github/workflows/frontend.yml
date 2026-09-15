@@ -78,6 +78,8 @@ jobs:
           echo "fe_bucket=$(terraform -chdir=$TF_DIR output -raw fe_bucket)" >> "$GITHUB_OUTPUT"
           echo "fe_distribution_id=$(terraform -chdir=$TF_DIR output -raw fe_distribution_id)" >> "$GITHUB_OUTPUT"
           echo "api_base_url=$(terraform -chdir=$TF_DIR output -raw api_base_url)" >> "$GITHUB_OUTPUT"
+          echo "cognito_domain=$(terraform -chdir=$TF_DIR output -raw cognito_domain)" >> "$GITHUB_OUTPUT"
+          echo "cognito_client_id=$(terraform -chdir=$TF_DIR output -raw cognito_client_id)" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-node@v4
         with:
@@ -94,6 +96,8 @@ jobs:
         working-directory: frontend
         env:
           VITE_API_BASE_URL: ${{ steps.tf.outputs.api_base_url }}
+          VITE_COGNITO_DOMAIN: ${{ steps.tf.outputs.cognito_domain }}
+          VITE_COGNITO_CLIENT_ID: ${{ steps.tf.outputs.cognito_client_id }}
 
       - name: Deploy su S3
         run: aws s3 sync frontend/dist "s3://${{ steps.tf.outputs.fe_bucket }}" --delete
