@@ -32,3 +32,13 @@ variable "build_dir" {
   description = "Directory for the generated lambda zips"
   type        = string
 }
+
+variable "jwt_issuer" {
+  description = "JWT issuer URL (the Cognito user pool)"
+  type        = string
+}
+
+variable "jwt_audience" {
+  description = "Expected JWT audience (the SPA app client id)"
+  type        = string
+}

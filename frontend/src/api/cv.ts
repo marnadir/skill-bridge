@@ -2,7 +2,21 @@
 //restituisce la presigned URL, la PUT carica il CV direttamente su
 //S3. Senza VITE_API_BASE_URL il flusso viene simulato per lo
 //sviluppo senza backend
+import { authEnabled, getAccessToken, login } from '../auth/auth'
+
 const API_BASE_URL: string | undefined = import.meta.env.VITE_API_BASE_URL
+
+//header di autenticazione: il gateway valida il token PRIMA della
+//lambda; senza token valido si viene rimandati al login
+async function authHeaders(): Promise<Record<string, string>> {
+  if (!authEnabled) return {}
+  const token = await getAccessToken()
+  if (!token) {
+    await login() //redirect: non si torna da qui
+    throw new Error('Autenticazione richiesta')
+  }
+  return { authorization: `Bearer ${token}` }
+}
 
 export interface UploadResult {
   fileName: string
@@ -26,7 +40,7 @@ export async function uploadCv(file: File): Promise<UploadResult> {
   //1) crea il job: il backend traccia lo stato e firma l'upload
   const createResponse = await fetch(`${API_BASE_URL}/jobs`, {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...(await authHeaders()) },
     body: JSON.stringify({
       fileName: file.name,
       contentType: file.type,
@@ -34,6 +48,10 @@ export async function uploadCv(file: File): Promise<UploadResult> {
     }),
   })
 
+  if (createResponse.status === 401) {
+    await login() //token scaduto/revocato: si rifa' il giro
+    throw new Error('Sessione scaduta')
+  }
   if (!createResponse.ok) {
     const detail = await createResponse
       .json()

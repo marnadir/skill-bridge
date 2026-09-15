@@ -131,6 +131,11 @@ def _create_job(event: dict[str, Any]) -> dict[str, Any]:
         message = VALIDATION_MESSAGES.get(str(loc[0]) if loc else "", "Body JSON non valido")
         return _response(400, {"message": message})
 
+    ##the gateway has ALREADY validated the JWT (ADR-014): here we
+    ##only read the verified claims for attribution
+    claims = event.get("requestContext", {}).get("authorizer", {}).get("jwt", {}).get("claims", {})
+    created_by = claims.get("email") or claims.get("sub") or "unknown"
+
     job_id = str(uuid.uuid4())
     safe_name = re.sub(r"[^\w.\-]+", "_", request.file_name)[-100:]
     # the job_id is embedded in the key: the starter lambda derives it
@@ -145,6 +150,7 @@ def _create_job(event: dict[str, Any]) -> dict[str, Any]:
             "status": {"S": "PENDING_UPLOAD"},
             "cv_key": {"S": key},
             "file_name": {"S": request.file_name},
+            "created_by": {"S": created_by},
             "created_at": {"S": now},
             "updated_at": {"S": now},
         },

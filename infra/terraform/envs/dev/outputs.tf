@@ -21,6 +21,20 @@ output "cv_processing_state_machine_arn" {
   value = module.cv_processing.state_machine_arn
 }
 
+##consumed by the frontend build (VITE_COGNITO_*) and by admin
+##user creation
+output "cognito_user_pool_id" {
+  value = module.auth.user_pool_id
+}
+
+output "cognito_client_id" {
+  value = module.auth.client_id
+}
+
+output "cognito_domain" {
+  value = module.auth.hosted_ui_domain
+}
+
 output "vectorstore_cluster_arn" {
   value = module.vectorstore.cluster_arn
 }
