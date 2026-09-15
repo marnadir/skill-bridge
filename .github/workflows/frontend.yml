@@ -70,16 +70,26 @@ jobs:
           terraform_wrapper: false
 
       ##gli output terraform sono la fonte di verita' su bucket,
-      ##distribution e function url della lambda presign
+      ##distribution, api e cognito. Assegnazione PRIMA dell'echo: se
+      ##un output non esiste ancora (race col job apply al primo
+      ##deploy di una risorsa nuova) il job DEVE fallire, non produrre
+      ##un build con variabili vuote — imparato con l'auth (ADR-014)
       - name: Terraform outputs
         id: tf
         run: |
           terraform -chdir=$TF_DIR init -input=false
-          echo "fe_bucket=$(terraform -chdir=$TF_DIR output -raw fe_bucket)" >> "$GITHUB_OUTPUT"
-          echo "fe_distribution_id=$(terraform -chdir=$TF_DIR output -raw fe_distribution_id)" >> "$GITHUB_OUTPUT"
-          echo "api_base_url=$(terraform -chdir=$TF_DIR output -raw api_base_url)" >> "$GITHUB_OUTPUT"
-          echo "cognito_domain=$(terraform -chdir=$TF_DIR output -raw cognito_domain)" >> "$GITHUB_OUTPUT"
-          echo "cognito_client_id=$(terraform -chdir=$TF_DIR output -raw cognito_client_id)" >> "$GITHUB_OUTPUT"
+          FE_BUCKET=$(terraform -chdir=$TF_DIR output -raw fe_bucket)
+          FE_DISTRIBUTION_ID=$(terraform -chdir=$TF_DIR output -raw fe_distribution_id)
+          API_BASE_URL=$(terraform -chdir=$TF_DIR output -raw api_base_url)
+          COGNITO_DOMAIN=$(terraform -chdir=$TF_DIR output -raw cognito_domain)
+          COGNITO_CLIENT_ID=$(terraform -chdir=$TF_DIR output -raw cognito_client_id)
+          {
+            echo "fe_bucket=$FE_BUCKET"
+            echo "fe_distribution_id=$FE_DISTRIBUTION_ID"
+            echo "api_base_url=$API_BASE_URL"
+            echo "cognito_domain=$COGNITO_DOMAIN"
+            echo "cognito_client_id=$COGNITO_CLIENT_ID"
+          } >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-node@v4
         with:
