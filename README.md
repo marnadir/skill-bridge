@@ -17,6 +17,10 @@ CV parsing and job-description matching system on AWS — serverless pipeline
 - Backend API on API Gateway (HTTP API) + Lambda: `POST /jobs` creates the job and
   returns an S3 presigned PUT URL (the file never transits through the backend);
   `GET /jobs/{jobId}` exposes status and results. Requests validated with Pydantic.
+- Stats dashboard in the web app (behind login): stat tiles (total/completed/
+  review CVs, spend and average cost per CV in EUR) plus daily bar charts of
+  processed CVs and cost, aggregated by `GET /stats` from the jobs table and
+  the CloudWatch EMF cost metrics.
 - Authentication with Amazon Cognito: recruiters log in via the Hosted UI
   (authorization code + PKCE, no secrets in the SPA); JWTs are validated by the
   API Gateway JWT authorizer BEFORE the Lambda runs — unauthenticated requests

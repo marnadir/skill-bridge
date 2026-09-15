@@ -1,0 +1,119 @@
+.stats {
+  width: 100%;
+  max-width: 760px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.stats__note {
+  margin: 0;
+  font-size: 0.85rem;
+  opacity: 0.7;
+}
+
+/* stat tiles: il numero e' il protagonista, l'etichetta e' testo muto */
+.stats__tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.75rem;
+}
+
+.stats__tile {
+  border: 1px solid #8883;
+  border-radius: 12px;
+  padding: 0.9rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.stats__tile-value {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.stats__tile-label {
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+
+/* due grafici separati (mai doppio asse); serie singola = un colore */
+.stats__charts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1rem;
+}
+
+.stats__chart {
+  border: 1px solid #8883;
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.stats__chart-title {
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.stats__bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px; /* spacer tra barre adiacenti */
+  height: 120px;
+}
+
+.stats__bar-slot {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  cursor: default;
+}
+
+.stats__bar {
+  width: 100%;
+  background-color: var(--accent);
+  border-radius: 4px 4px 0 0; /* data-end arrotondato, base ancorata */
+  min-height: 0;
+  transition: opacity 0.15s;
+}
+
+.stats__bar-slot:hover .stats__bar {
+  opacity: 0.75;
+}
+
+.stats__axis {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.7rem;
+  opacity: 0.6;
+  margin-top: 0.3rem;
+}
+
+/* vista tabella di fallback (accessibilita') */
+.stats__table {
+  margin-top: 0.6rem;
+  font-size: 0.8rem;
+}
+
+.stats__table summary {
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.stats__table table {
+  margin-top: 0.4rem;
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.stats__table th,
+.stats__table td {
+  text-align: left;
+  padding: 0.2rem 0.5rem;
+  border-bottom: 1px solid #8883;
+}

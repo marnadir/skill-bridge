@@ -29,6 +29,10 @@ s3 = boto3.client(
     config=Config(signature_version="s3v4", s3={"addressing_style": "virtual"}),
 )
 dynamodb = boto3.client("dynamodb")
+cloudwatch = boto3.client("cloudwatch")
+
+##stats window shown in the web app dashboard
+STATS_WINDOW_DAYS = 14
 
 BUCKET = os.environ["BUCKET_NAME"]
 JOBS_TABLE = os.environ["JOBS_TABLE"]
@@ -93,6 +97,28 @@ def _response(status_code: int, body: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+class DailyPoint(BaseModel):
+    """One day of the dashboard time series."""
+
+    date: str
+    jobs: int = 0
+    cost_eur: float = 0.0
+
+
+class StatsResponse(BaseModel):
+    """Payload of GET /stats (window: STATS_WINDOW_DAYS)."""
+
+    window_days: int
+    total_jobs: int
+    completed: int
+    failed: int
+    needs_review: int
+    processing: int
+    total_cost_eur: float
+    avg_cost_per_cv_eur: float
+    daily: list[DailyPoint]
+
+
 def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     """Route the API Gateway request.
 
@@ -110,7 +136,89 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         return _create_job(event)
     if route == "GET /jobs/{jobId}":
         return _get_job(event)
+    if route == "GET /stats":
+        return _get_stats()
     return _response(404, {"message": "Rotta non trovata"})
+
+
+def _get_stats() -> dict[str, Any]:
+    """Aggregate the dashboard stats for the web app.
+
+    Job counts come from the jobs table (paginated scan: fine at this
+    scale); costs come from the StepCostEur EMF metric (aggregate
+    no-dimension series) already emitted by every pipeline lambda.
+
+    Returns:
+        dict[str, Any]: 200 with a StatsResponse body.
+    """
+    from datetime import UTC, datetime, timedelta
+
+    now = datetime.now(UTC)
+    window_start = now - timedelta(days=STATS_WINDOW_DAYS)
+
+    ##--- job counts + daily series from the jobs table ---
+    counts = {"COMPLETED": 0, "FAILED": 0, "NEEDS_REVIEW": 0}
+    processing = total = 0
+    daily_jobs: dict[str, int] = {}
+    scan_kwargs: dict[str, Any] = {
+        "TableName": JOBS_TABLE,
+        "ProjectionExpression": "#s, created_at",
+        "ExpressionAttributeNames": {"#s": "status"},
+    }
+    while True:
+        page = dynamodb.scan(**scan_kwargs)
+        for item in page.get("Items", []):
+            total += 1
+            status = item["status"]["S"]
+            if status in counts:
+                counts[status] += 1
+            elif status in ("PROCESSING", "PENDING_UPLOAD"):
+                processing += 1
+            created = item["created_at"]["S"][:10]
+            if created >= window_start.strftime("%Y-%m-%d"):
+                daily_jobs[created] = daily_jobs.get(created, 0) + 1
+        if "LastEvaluatedKey" not in page:
+            break
+        scan_kwargs["ExclusiveStartKey"] = page["LastEvaluatedKey"]
+
+    ##--- daily cost from the aggregate StepCostEur metric ---
+    metric = cloudwatch.get_metric_data(
+        MetricDataQueries=[{
+            "Id": "cost",
+            "MetricStat": {
+                "Metric": {"Namespace": "SkillBridge/Pipeline", "MetricName": "StepCostEur"},
+                "Period": 86400,
+                "Stat": "Sum",
+            },
+        }],
+        StartTime=window_start,
+        EndTime=now,
+    )["MetricDataResults"][0]
+    daily_cost = {
+        ts.strftime("%Y-%m-%d"): value
+        for ts, value in zip(metric["Timestamps"], metric["Values"])
+    }
+
+    days = [(window_start + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(STATS_WINDOW_DAYS + 1)]
+    daily = [
+        DailyPoint(date=d, jobs=daily_jobs.get(d, 0), cost_eur=round(daily_cost.get(d, 0.0), 4))
+        for d in days
+    ]
+    total_cost = round(sum(p.cost_eur for p in daily), 4)
+    completed_in_window = sum(p.jobs for p in daily)
+
+    stats = StatsResponse(
+        window_days=STATS_WINDOW_DAYS,
+        total_jobs=total,
+        completed=counts["COMPLETED"],
+        failed=counts["FAILED"],
+        needs_review=counts["NEEDS_REVIEW"],
+        processing=processing,
+        total_cost_eur=total_cost,
+        avg_cost_per_cv_eur=round(total_cost / completed_in_window, 4) if completed_in_window else 0.0,
+        daily=daily,
+    )
+    return _response(200, stats.model_dump())
 
 
 def _create_job(event: dict[str, Any]) -> dict[str, Any]:

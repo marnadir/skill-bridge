@@ -28,8 +28,17 @@ resource "aws_iam_role_policy" "backend_api" {
         Action = [
           "dynamodb:PutItem",
           "dynamodb:GetItem",
+          "dynamodb:Scan", ##stats: conteggi per la dashboard web
         ]
         Resource = aws_dynamodb_table.jobs.arn
+      },
+      {
+        ##stats: serie giornaliera dei costi dalle metriche EMF
+        ##(GetMetricData non supporta resource-level permissions)
+        Sid      = "ReadMetrics"
+        Effect   = "Allow"
+        Action   = "cloudwatch:GetMetricData"
+        Resource = "*"
       },
       {
         ##needed to sign presigned PUT URLs for the cv/ prefix
