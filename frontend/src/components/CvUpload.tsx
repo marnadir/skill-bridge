@@ -1,6 +1,8 @@
 import { useCallback, useRef, useState } from 'react'
 import type { ChangeEvent, DragEvent } from 'react'
-import { uploadCv } from '../api/cv'
+import { uploadCv, waitForJob } from '../api/cv'
+import type { JobStatus, MatchReport } from '../api/cv'
+import { MatchResults } from './MatchResults'
 import './CvUpload.css'
 
 //formati accettati per il CV e limite dimensione
@@ -19,7 +21,9 @@ type Status =
   | { kind: 'idle' }
   | { kind: 'selected'; file: File }
   | { kind: 'uploading'; file: File }
-  | { kind: 'done'; fileName: string; simulated: boolean }
+  | { kind: 'processing'; fileName: string; jobStatus: JobStatus }
+  | { kind: 'completed'; fileName: string; report: MatchReport | null }
+  | { kind: 'review'; fileName: string }
   | { kind: 'error'; message: string }
 
 function validate(file: File): string | null {
@@ -68,7 +72,24 @@ export function CvUpload() {
     setStatus({ kind: 'uploading', file })
     try {
       const result = await uploadCv(file)
-      setStatus({ kind: 'done', fileName: result.fileName, simulated: result.simulated })
+      //file su S3: da qui in poi si segue il job (poll ogni 20s,
+      //pausa a tab nascosta, timeout duro)
+      setStatus({ kind: 'processing', fileName: result.fileName, jobStatus: 'PENDING_UPLOAD' })
+      const job = await waitForJob(result.jobId, (jobStatus) =>
+        setStatus({ kind: 'processing', fileName: result.fileName, jobStatus }),
+      )
+      if (job === null) {
+        setStatus({
+          kind: 'error',
+          message: 'L\'elaborazione sta impiegando piu del previsto: riprova a controllare tra qualche minuto.',
+        })
+      } else if (job.status === 'FAILED') {
+        setStatus({ kind: 'error', message: 'Elaborazione fallita. Riprova o contatta il supporto.' })
+      } else if (job.status === 'NEEDS_REVIEW') {
+        setStatus({ kind: 'review', fileName: result.fileName })
+      } else {
+        setStatus({ kind: 'completed', fileName: result.fileName, report: job.results ?? null })
+      }
     } catch (err) {
       setStatus({
         kind: 'error',
@@ -133,12 +154,33 @@ export function CvUpload() {
         </div>
       )}
 
-      {status.kind === 'done' && (
-        <div className="cv-upload__panel cv-upload__panel--success">
+      {status.kind === 'processing' && (
+        <div className="cv-upload__panel">
           <p>
-            <strong>{status.fileName}</strong> caricato con successo: l’elaborazione
-            prosegue in background
-            {status.simulated && ' (simulato: backend non configurato)'}.
+            <strong>{status.fileName}</strong> caricato — analisi e matching in
+            corso… (in genere ~2 minuti)
+          </p>
+        </div>
+      )}
+
+      {status.kind === 'completed' && (
+        <div className="cv-upload__panel cv-upload__panel--success">
+          {status.report ? (
+            <MatchResults report={status.report} />
+          ) : (
+            <p><strong>{status.fileName}</strong>: elaborazione completata.</p>
+          )}
+          <div className="cv-upload__actions">
+            <button onClick={reset}>Carica un altro CV</button>
+          </div>
+        </div>
+      )}
+
+      {status.kind === 'review' && (
+        <div className="cv-upload__panel">
+          <p>
+            <strong>{status.fileName}</strong>: il documento non ha superato i
+            controlli automatici ed è in coda di revisione umana.
           </p>
           <div className="cv-upload__actions">
             <button onClick={reset}>Carica un altro CV</button>

@@ -28,9 +28,13 @@ resource "aws_iam_role_policy" "backend_api" {
         Action = [
           "dynamodb:PutItem",
           "dynamodb:GetItem",
-          "dynamodb:Scan", ##stats: conteggi per la dashboard web
+          "dynamodb:Scan",  ##stats: conteggi per la dashboard web
+          "dynamodb:Query", ##"my jobs" listing sul GSI created_by-index
         ]
-        Resource = aws_dynamodb_table.jobs.arn
+        Resource = [
+          aws_dynamodb_table.jobs.arn,
+          "${aws_dynamodb_table.jobs.arn}/index/*",
+        ]
       },
       {
         ##stats: serie giornaliera dei costi dalle metriche EMF

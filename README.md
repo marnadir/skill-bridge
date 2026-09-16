@@ -16,7 +16,20 @@ CV parsing and job-description matching system on AWS — serverless pipeline
   drag & drop CV upload (PDF/DOC/DOCX, max 4.5 MB) with client-side validation.
 - Backend API on API Gateway (HTTP API) + Lambda: `POST /jobs` creates the job and
   returns an S3 presigned PUT URL (the file never transits through the backend);
-  `GET /jobs/{jobId}` exposes status and results. Requests validated with Pydantic.
+  `GET /jobs/{jobId}` exposes status and results; `GET /jobs` lists the caller's
+  own uploads (newest first, via a `created_by` GSI — the identity comes from the
+  verified JWT claims, never from a request parameter). Requests validated with
+  Pydantic.
+- After the upload the web app follows the job (20s polling with hidden-tab
+  pause and hard timeout) and renders the match report in the UI: offers with
+  outcome badges (match / to verify / not in line), scores, evidences and the
+  employer verification results — no_match entries collapsed. The review-queue
+  and failure outcomes have their own states.
+- Three-page web app with a banner menu and clean URLs (react-router +
+  CloudFront index.html fallback): `/home` (upload), `/stats` (dashboard) and
+  `/results` — the history of the user's own uploads, each expandable to its
+  match report (detail fetched on open). All pages stay mounted so the upload
+  polling survives navigation.
 - Stats dashboard in the web app (behind login): stat tiles (total/completed/
   review CVs, spend and average cost per CV in EUR) plus daily bar charts of
   processed CVs and cost, aggregated by `GET /stats` from the jobs table and
@@ -142,7 +155,5 @@ CV parsing and job-description matching system on AWS — serverless pipeline
       a redeploy.
 - [ ] KMS encryption + lifecycle/retention on the CV bucket; KMS CMK on the
       `pii-map` table (GDPR retention, doc section 8).
-- [ ] Web app: job status polling via `GET /jobs/{jobId}` (endpoint already
-      live, FE deliberately stops at upload confirmation for now).
 - [ ] Restrict presigned PUT further (content-length-range via presigned POST
       or size check at parsing) — today size is validated at job creation only.
