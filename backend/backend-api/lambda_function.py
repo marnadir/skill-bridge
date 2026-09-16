@@ -4,6 +4,8 @@ Routes (doc section 3.1):
 - POST /jobs: creates the job on the DynamoDB jobs table (source of
   truth of the processing state) and returns a presigned PUT URL; the
   file goes directly from the client to S3, never through the backend.
+- GET /jobs: lists the caller's jobs (newest first) for the web app
+  results page, via the created_by GSI.
 - GET /jobs/{jobId}: returns the job state (and result pointers) for
   the web app polling."""
 
@@ -36,6 +38,10 @@ STATS_WINDOW_DAYS = 14
 
 BUCKET = os.environ["BUCKET_NAME"]
 JOBS_TABLE = os.environ["JOBS_TABLE"]
+##GSI for the "my jobs" listing; keep in sync with the module data.tf
+JOBS_BY_OWNER_INDEX = "created_by-index"
+##single-page listing: plenty for the demo web app, no pagination
+LIST_JOBS_LIMIT = 50
 
 URL_TTL_SECONDS = 300
 # 4.5 MB: hard limit of Bedrock Converse document blocks used by the
@@ -119,6 +125,39 @@ class StatsResponse(BaseModel):
     daily: list[DailyPoint]
 
 
+class JobSummary(BaseModel):
+    """One row of the GET /jobs listing (no heavy results payload)."""
+
+    jobId: str
+    status: str
+    fileName: str
+    createdAt: str
+    updatedAt: str
+
+
+class ListJobsResponse(BaseModel):
+    """Payload of GET /jobs (the caller's jobs, newest first)."""
+
+    jobs: list[JobSummary]
+
+
+def _caller_identity(event: dict[str, Any]) -> str:
+    """Extract the caller identity from the verified JWT claims.
+
+    The gateway has ALREADY validated the token (ADR-014): here we
+    only read the claims for attribution and per-user filtering.
+
+    Args:
+        event: The API Gateway v2 event.
+
+    Returns:
+        str: The caller's email (preferred) or subject, "unknown"
+            when auth is disabled (demo mode).
+    """
+    claims = event.get("requestContext", {}).get("authorizer", {}).get("jwt", {}).get("claims", {})
+    return claims.get("email") or claims.get("sub") or "unknown"
+
+
 def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
     """Route the API Gateway request.
 
@@ -134,6 +173,8 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
 
     if route == "POST /jobs":
         return _create_job(event)
+    if route == "GET /jobs":
+        return _list_jobs(event)
     if route == "GET /jobs/{jobId}":
         return _get_job(event)
     if route == "GET /stats":
@@ -226,6 +267,43 @@ def _get_stats() -> dict[str, Any]:
     return _response(200, stats.model_dump())
 
 
+def _list_jobs(event: dict[str, Any]) -> dict[str, Any]:
+    """List the caller's jobs, newest first.
+
+    Queries the created_by GSI: only the caller's own jobs are
+    visible (the identity comes from the verified JWT claims, never
+    from a request parameter).
+
+    Args:
+        event: The API Gateway v2 event.
+
+    Returns:
+        dict[str, Any]: 200 with a ListJobsResponse body.
+    """
+    created_by = _caller_identity(event)
+
+    page = dynamodb.query(
+        TableName=JOBS_TABLE,
+        IndexName=JOBS_BY_OWNER_INDEX,
+        KeyConditionExpression="created_by = :owner",
+        ExpressionAttributeValues={":owner": {"S": created_by}},
+        ScanIndexForward=False,  ##range key created_at: newest first
+        Limit=LIST_JOBS_LIMIT,
+    )
+
+    jobs = [
+        JobSummary(
+            jobId=item["job_id"]["S"],
+            status=item["status"]["S"],
+            fileName=item["file_name"]["S"],
+            createdAt=item["created_at"]["S"],
+            updatedAt=item["updated_at"]["S"],
+        )
+        for item in page.get("Items", [])
+    ]
+    return _response(200, ListJobsResponse(jobs=jobs).model_dump())
+
+
 def _create_job(event: dict[str, Any]) -> dict[str, Any]:
     """Create a job and return the presigned upload URL.
 
@@ -244,10 +322,7 @@ def _create_job(event: dict[str, Any]) -> dict[str, Any]:
         message = VALIDATION_MESSAGES.get(str(loc[0]) if loc else "", "Body JSON non valido")
         return _response(400, {"message": message})
 
-    ##the gateway has ALREADY validated the JWT (ADR-014): here we
-    ##only read the verified claims for attribution
-    claims = event.get("requestContext", {}).get("authorizer", {}).get("jwt", {}).get("claims", {})
-    created_by = claims.get("email") or claims.get("sub") or "unknown"
+    created_by = _caller_identity(event)
 
     job_id = str(uuid.uuid4())
     safe_name = re.sub(r"[^\w.\-]+", "_", request.file_name)[-100:]

@@ -54,14 +54,18 @@ function BarChart({
   )
 }
 
-export function StatsDashboard() {
+export function StatsDashboard({ active }: { active: boolean }) {
   const [state, setState] = useState<State>({ kind: 'loading' })
 
+  //la pagina resta montata (App tiene vive le viste): i numeri si
+  //aggiornano a ogni ingresso nella pagina, non solo al mount; i
+  //dati precedenti restano visibili durante il refresh
   useEffect(() => {
+    if (!active) return
     fetchStats()
       .then((stats) => setState({ kind: 'ready', stats }))
       .catch((err: Error) => setState({ kind: 'error', message: err.message }))
-  }, [])
+  }, [active])
 
   if (state.kind === 'loading') {
     return <p className="stats__note">Caricamento statistiche…</p>

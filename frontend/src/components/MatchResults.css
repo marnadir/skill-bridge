@@ -1,0 +1,108 @@
+.results {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  text-align: left;
+}
+
+.results__title {
+  margin: 0.5rem 0 0;
+  font-size: 1.1rem;
+}
+
+.results__subtitle {
+  margin: 0.75rem 0 0;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.7;
+}
+
+.results__card {
+  border: 1px solid #8883;
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+}
+
+.results__card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+/* badge di stato: icona + testo, colori riservati agli stati */
+.results__badge {
+  font-size: 0.8rem;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.results__badge--match {
+  background-color: #22c55e22;
+  border: 1px solid #22c55e88;
+}
+
+.results__badge--review {
+  background-color: #f59e0b22;
+  border: 1px solid #f59e0b88;
+}
+
+.results__badge--no {
+  background-color: #8882;
+  border: 1px solid #8885;
+}
+
+.results__evidences {
+  margin: 0.5rem 0 0;
+  padding-left: 1.2rem;
+  font-size: 0.9rem;
+}
+
+.results__evidences li {
+  margin-bottom: 0.2rem;
+}
+
+.results__nomatch {
+  font-size: 0.9rem;
+}
+
+.results__nomatch summary {
+  cursor: pointer;
+  opacity: 0.75;
+  margin-bottom: 0.5rem;
+}
+
+.results__nomatch .results__card {
+  margin-bottom: 0.5rem;
+}
+
+.results__employers {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.results__employers li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.results__empty {
+  opacity: 0.75;
+}
+
+.results__disclaimer {
+  margin: 0.75rem 0 0;
+  font-size: 0.8rem;
+  opacity: 0.6;
+  font-style: italic;
+}
