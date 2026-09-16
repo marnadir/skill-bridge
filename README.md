@@ -157,3 +157,8 @@ CV parsing and job-description matching system on AWS — serverless pipeline
       `pii-map` table (GDPR retention, doc section 8).
 - [ ] Restrict presigned PUT further (content-length-range via presigned POST
       or size check at parsing) — today size is validated at job creation only.
+- [ ] Golden case for employer verification: a CV citing a registry company
+      must yield an `employer_check` in the report. Tool calls are the agent's
+      decision (ADR-009), so skipping `validate_employer` is a silent quality
+      degradation — observed once in E2E (2026-09-16); the eval case turns it
+      into a gated metric.

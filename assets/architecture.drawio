@@ -18,7 +18,7 @@
         </mxCell>
 
         <!-- ======== Band 2: API + job tracking ======== -->
-        <mxCell id="apigw" value="API Gateway&#xa;POST /jobs · GET /jobs/{id}" style="sketch=0;outlineConnect=0;fontColor=#232F3E;fillColor=#E7157B;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.api_gateway;" vertex="1" parent="1">
+        <mxCell id="apigw" value="API Gateway (JWT)&#xa;/jobs · /jobs/{jobId} · /stats" style="sketch=0;outlineConnect=0;fontColor=#232F3E;labelBackgroundColor=#ffffff;fillColor=#E7157B;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.api_gateway;" vertex="1" parent="1">
           <mxGeometry x="340" y="300" width="78" height="78" as="geometry" />
         </mxCell>
         <mxCell id="backendapi" value="Lambda&#xa;backend-api" style="sketch=0;outlineConnect=0;fontColor=#232F3E;fillColor=#ED7100;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;" vertex="1" parent="1">
@@ -26,6 +26,10 @@
         </mxCell>
         <mxCell id="jobs" value="DynamoDB&#xa;jobs (stato + risultati)" style="sketch=0;outlineConnect=0;fontColor=#232F3E;fillColor=#C925D1;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.dynamodb;" vertex="1" parent="1">
           <mxGeometry x="920" y="300" width="78" height="78" as="geometry" />
+        </mxCell>
+
+        <mxCell id="cognito" value="Cognito User Pool&#xa;Hosted UI (PKCE)" style="sketch=0;outlineConnect=0;fontColor=#232F3E;fillColor=#DD344C;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cognito;" vertex="1" parent="1">
+          <mxGeometry x="340" y="430" width="78" height="78" as="geometry" />
         </mxCell>
 
         <!-- ======== Band 3: event flow ======== -->
@@ -185,6 +189,18 @@
             <Array as="points">
               <mxPoint x="82" y="1330" />
             </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="eAuth1" value="login Hosted UI" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=11;labelBackgroundColor=#ffffff;dashed=1;exitX=0.5;exitY=1;entryX=0;entryY=0.5;" edge="1" parent="1" source="user" target="cognito">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="99" y="469" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="eAuth2" value="JWT authorizer&#xa;(valida i token)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;fontSize=11;labelBackgroundColor=#ffffff;dashed=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="apigw" target="cognito">
+          <mxGeometry x="0" relative="1" as="geometry">
+            <mxPoint as="offset" x="118" y="0" />
           </mxGeometry>
         </mxCell>
       </root>
